@@ -1,0 +1,79 @@
+1
+00:00:00,000 --> 00:00:02,040
+Trái đất sẽ thế nào nếu xảy ra trận động đất cấp 100?
+
+2
+00:00:02,040 --> 00:00:04,340
+Trái đất sẽ hơi bị mệt, đừng kéo tớ vào nhé.
+
+3
+00:00:04,340 --> 00:00:06,140
+Dù có làm nổ tung cả lớp thịt bên ngoài.
+
+4
+00:00:06,140 --> 00:00:07,820
+Cũng không thể giữ lại năng lượng của trận động đất cấp 100.
+
+5
+00:00:07,820 --> 00:00:09,080
+Gã nói như thể chuyện vặt vãnh ấy.
+
+6
+00:00:09,080 --> 00:00:12,240
+Cả trái đất nổ thành cám cũng chỉ cần khoảng 18 cấp thôi.
+
+7
+00:00:12,240 --> 00:00:14,060
+Cái này rõ ràng là phân cấp có vấn đề mà.
+
+8
+00:00:14,060 --> 00:00:16,560
+Mỗi cấp động đất tăng lên thì năng lượng phải gấp 32 lần.
+
+9
+00:00:16,560 --> 00:00:19,300
+Ai cũng biết chỉ cần gấp 42 lần là giấy có thể chọc tới mặt trăng.
+
+10
+00:00:19,300 --> 00:00:21,180
+Hơn 100 lần thì có thể làm nổ tung một khối thịt lớn đấy.
+
+11
+00:00:21,180 --> 00:00:23,700
+Còn đây chỉ là gấp đôi thôi mà đã nổ banh xác rồi.
+
+12
+00:00:23,700 --> 00:00:25,540
+Vậy động đất mà tăng một cấp thì gấp 32 lần.
+
+13
+00:00:25,540 --> 00:00:26,280
+Cậu bảo nên gọi nó là gì đây?
+
+14
+00:00:26,280 --> 00:00:27,480
+Có những người bạn thắc mắc.
+
+15
+00:00:27,480 --> 00:00:29,960
+Sao lại là số 32 lập dị đó nhỉ?
+
+16
+00:00:29,960 --> 00:00:32,840
+Sao không thể là gấp 10 lần hay 9.3 lần nhỉ?
+
+17
+00:00:32,840 --> 00:00:34,440
+Hoặc 11.4514 lần thì sao?
+
+18
+00:00:34,440 --> 00:00:36,460
+Này, bạn thân, phải có số nào chứ nhỉ?
+
+19
+00:00:36,460 --> 00:00:38,200
+Nếu quả thật là 11.4514 lần thì sao?
+
+20
+00:00:38,200 --> 00:00:38,980
+Cậu nên hỏi xem tại sao ấy.

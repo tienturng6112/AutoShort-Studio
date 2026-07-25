@@ -1,0 +1,75 @@
+Created At: 2026-07-20T04:20:02Z
+Completed At: 2026-07-20T04:20:02Z
+File Path: `file:///C:/Users/DN%20GROUP/.gemini/antigravity-ide/brain/5be1db65-c979-45a2-844e-ff92d6152825/.system_generated/tasks/task-242.log`
+Total Lines: 67
+Total Bytes: 2878
+Showing lines 1 to 67
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: 21:    def __init__(self, key, url):
+2: 26:    def run(self):
+3: 44:    def __init__(self, api_key):
+4: 48:    def run(self):
+5: 52:        async def test_deepl(key):
+6: 87:    def __init__(self, api_key):
+7: 91:    def run(self):
+8: 108:    def __init__(self, provider_name, api_key, base_url=""):
+9: 114:    def run(self):
+10: 128:                models = ["default"]
+11: 138:    def __init__(self, provider_name, api_key=""):
+12: 143:    def run(self):
+13: 165:    def __init__(self, text, voice):
+14: 170:    def run(self):
+15: 204:def get_friendly_name(voice_name, gender="Unknown"):
+16: 220:def get_speaker_stats():
+17: 258:    def __init__(self, parent=None):
+18: 289:        self.init_ui()
+19: 294:    def toggle_voice_mode(self):
+20: 299:    def update_ui_text(self):
+21: 391:    def init_ui(self):
+22: 666:    def on_api_key_changed(self, text):
+23: 674:    def update_ui_state(self):
+24: 710:    def preview_voice(self, speaker, combo, button):
+25: 713:        # If default voice is selected, resolve it based on target language
+26: 740:    def on_preview_finished(self, audio_bytes, voice_name, button):
+27: 778:    def load_settings(self):
+28: 843:                        saved_model = deepl_config.get("model", "default")
+29: 927:    def save_settings(self):
+30: 985:                "model": self.model_combo.currentText().strip() if "DeepL" in provider_text else "default"
+31: 1001:    def test_connection(self):
+32: 1027:    def on_test_finished(self, result):
+33: 1039:    def on_kira_api_key_changed(self, text):
+34: 1043:    def on_lang_changed(self):
+35: 1058:    def switch_to_custom_profile(self, *args):
+36: 1069:    def on_profile_changed(self):
+37: 1106:    def update_tts_ui_state(self):
+38: 1111:    def repopulate_speaker_voices(self):
+39: 1173:            combo.addItem("(Default Voice)", "")
+40: 1189:    def test_kira_connection(self):
+41: 1205:    def on_kira_connection_tested(self, result):
+42: 1218:    def _load_cached_models(self):
+43: 1239:    def _save_models_to_cache(self, provider_name, models):
+44: 1255:    def refresh_translation_models(self):
+45: 1277:    def on_trans_models_refreshed(self, result, provider_name):
+46: 1300:    def refresh_tts_models(self):
+47: 1317:    def on_tts_models_refreshed(self, result, provider_name):
+48: 1350:    def __init__(self):
+49: 1358:        self.init_ui()
+50: 1374:    def update_ui_text(self):
+51: 1404:    def init_ui(self):
+52: 1491:        # Set defaults: Source = English, Target = Vietnamese
+53: 1591:    def check_languages(self, index):
+54: 1599:    def browse_file(self):
+55: 1606:    def open_settings(self):
+56: 1610:    def open_project_manager(self):
+57: 1619:    def start_pipeline(self):
+58: 1754:    def read_queue_output(self, project_id, text):
+59: 1793:    def update_speaker_summary(self, project_id):
+60: 1828:    def queue_pipeline_finished(self, project_id, exit_code):
+61: 1883:    def update_queue_ui(self):
+62: 1887:    def check_recovery(self):
+63: 1894:    def update_output_mode_desc(self):
+64: 1905:    def open_output_folder(self):
+65: 1914:    def load_output_mode(self):
+66: 1934:    def save_output_mode(self):
+67: 
+The above content shows the entire, complete file contents of the requested file.

@@ -1,0 +1,12 @@
+{
+    "Speaker_A": {
+        "raw_label": "SPEAKER_00",
+        "gender": null,
+        "voice": null
+    },
+    "Speaker_B": {
+        "raw_label": "SPEAKER_01",
+        "gender": null,
+        "voice": null
+    }
+}

@@ -1,0 +1,1 @@
+# AutoShort Studio subtitle package

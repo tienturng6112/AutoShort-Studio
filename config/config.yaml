@@ -1,0 +1,14 @@
+server:
+  host: "127.0.0.1"
+  port: 8000
+  reload: true
+
+database:
+  url: "sqlite+aiosqlite:///database/autoshort.db"
+
+storage:
+  assets_dir: "assets"
+  projects_dir: "projects"
+  voices_dir: "voices"
+  videos_dir: "videos"
+  logs_dir: "logs"

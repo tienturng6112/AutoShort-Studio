@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "template_id": "tiktok",
+    "name": "TikTok Workflow",
+    "description": "Optimized for vertical rendering, large subtitle fonts, short length limits.",
+    "category": "TikTok",
+    "version": "1.0.0",
+    "author": "User",
+    "created_at": 1784535672.9544437,
+    "updated_at": 1784535672.9544854,
+    "compatible_app_version": "1.0.0",
+    "tags": [
+      "video",
+      "short-form",
+      "vertical"
+    ],
+    "favorite": false
+  },
+  "payload": {
+    "translation_settings": {},
+    "voice_settings": {},
+    "character_profiles": {},
+    "emotion_presets": {},
+    "pipeline_options": {},
+    "subtitle_settings": {
+      "font_size": 24,
+      "alignment": "center"
+    },
+    "render_settings": {},
+    "plugin_configuration": {}
+  }
+}

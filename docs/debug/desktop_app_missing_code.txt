@@ -1,0 +1,202 @@
+        idx = self.template_combo.findData(tpl_id)
+        if idx >= 0:
+            self.template_combo.setCurrentIndex(idx)
+
+    def start_pipeline(self):
+        input_val = self.input_edit.text().strip()
+        is_resume = hasattr(self, 'resume_project_id') and self.resume_project_id is not None
+        
+        if not input_val and not is_resume:
+            loc = LocalizationService()
+            QMessageBox.warning(self, loc.translate("msg_warning"), "Please specify an input video file or YouTube URL.")
+            return
+
+        # Prepare UI
+        self.start_btn.setEnabled(False)
+        self.browse_btn.setEnabled(False)
+        self.input_edit.setEnabled(False)
+        self.src_combo.setEnabled(False)
+        self.target_combo.setEnabled(False)
+        self.open_folder_btn.setVisible(False)
+        self.status_banner.setVisible(False)
+        self.speaker_summary_label.setVisible(False)
+        self.translation_quality_label.setVisible(False)
+        
+        self.progress_bar.setValue(0)
+        self.progress_label.setText("Status: Queuing...")
+        self.log_viewer.clear()
+        
+        from backend.services.project_repository import ProjectRepository
+        from backend.models.project_models import ProjectMetadata, ProjectSnapshot, ExecutionState
+        import time
+        
+        repo = ProjectRepository()
+        
+        if is_resume:
+            project_id = self.resume_project_id
+            
+            # Preflight Speaker Validation
+            project_data = repo.load(project_id)
+            if project_data:
+                output_mode = project_data.settings_snapshot.output_mode
+                if output_mode in ["Subtitle + Voice", "Voice Only", "Subtitle + Audio Files"]:
+                    stats = {}
+                    import json
+                    aligned_path = os.path.join("projects", project_id, "subtitle", "aligned_transcript.json")
+                    if not os.path.exists(aligned_path):
+                        aligned_path = os.path.join("projects", project_id, "subtitle", "transcript.json")
+                        
+                    if os.path.exists(aligned_path):
+                        try:
+                            with open(aligned_path, "r", encoding="utf-8") as f:
+                                tdata = json.load(f)
+                                for seg in tdata.get("segments", []):
+                                    spk = seg.get("speaker_id")
+                                    if spk:
+                                        stats[spk] = stats.get(spk, 0) + 1
+                        except Exception:
+                            pass
+                    
+                    speaker_voices = {}
+                    voice_mode = "SINGLE"
+                    if os.path.exists("config/settings.json"):
+                        try:
+                            with open("config/settings.json", "r", encoding="utf-8") as f:
+                                sdata = json.load(f)
+                                speaker_voices = sdata.get("speaker_voices", {})
+                                voice_mode = sdata.get("voice_mode", "SINGLE")
+                        except Exception:
+                            pass
+                            
+                    unconfigured = []
+                    if voice_mode == "MULTI":
+                        for spk, count in stats.items():
+                            if count > 0:
+                                voice = speaker_voices.get(spk, "")
+                                if not voice:
+                                    unconfigured.append((spk, count))
+                                
+                    if unconfigured:
+                        loc = LocalizationService()
+                        spk_name, spk_count = unconfigured[0]
+                        
+                        msg_text = loc.translate("msg_speaker_validation")
+                        if msg_text == "msg_speaker_validation":
+                            msg_text = f"Bạn chưa chọn giọng đọc cho {spk_name} ({spk_count} câu thoại)."
+                        else:
+                            msg_text = msg_text.format(spk_name, spk_count)
+                            
+                        msg_box = QMessageBox(self)
+                        msg_box.setIcon(QMessageBox.Warning)
+                        msg_box.setWindowTitle(loc.translate("msg_warning"))
+                        msg_box.setText(msg_text)
+                        
+                        settings_btn = msg_box.addButton(loc.translate("btn_open_settings"), QMessageBox.ActionRole)
+                        cancel_btn = msg_box.addButton(loc.translate("cancel"), QMessageBox.RejectRole)
+                        
+                        msg_box.exec()
+                        
+                        if msg_box.clickedButton() == settings_btn:
+                            self.open_settings()
+                            
+                        json.dump(tpl.payload.translation_settings, f)
+                        
+                    with open(os.path.join(project_dir, "characters.json"), "w", encoding="utf-8") as f:
+                        json.dump(tpl.payload.character_profiles, f)
+        self.log_viewer.append(f"[System] Enqueuing project {project_id}...")
+        self.queue_service.enqueue(project_id)
+
+    def read_queue_output(self, project_id, text):
+        loc = LocalizationService()
+        self.log_viewer.append(f"[{project_id}] {text}")
+        
+        # Map stages to progress
+        if "Stage 1:" in text:
+            self.progress_label.setText(loc.translate("stage_1"))
+            self.progress_bar.setValue(12)
+        elif "Stage 2:" in text:
+            self.progress_label.setText(loc.translate("stage_2"))
+            self.progress_bar.setValue(25)
+        elif "Stage 3:" in text:
+            self.progress_label.setText(loc.translate("stage_3"))
+            self.progress_bar.setValue(37)
+        elif "Stage 4:" in text:
+            self.progress_label.setText(loc.translate("stage_4"))
+            self.progress_bar.setValue(50)
+            self.update_speaker_summary(project_id)
+        elif "[Translation Quality Score]" in text:
+            score = text.split("[Translation Quality Score]")[-1].strip()
+            self.translation_quality_label.setText(f"{loc.translate('translation_quality')}: {score}")
+            self.translation_quality_label.setVisible(True)
+        elif "Stage 5:" in text:
+            self.progress_label.setText(loc.translate("stage_5"))
+            self.progress_bar.setValue(62)
+            
+        elif "Stage 6:" in text:
+            self.progress_label.setText(loc.translate("stage_6"))
+            self.progress_bar.setValue(75)
+        elif "Stage 7:" in text:
+            self.progress_label.setText(loc.translate("stage_7"))
+            self.progress_bar.setValue(87)
+        elif "Stage 8:" in text:
+            self.progress_label.setText(loc.translate("stage_8"))
+            self.progress_bar.setValue(95)
+        elif "Alpha 0.1A E2E Pipeline completed successfully!" in text:
+            self.progress_label.setText(loc.translate("stage_completed"))
+            self.progress_bar.setValue(100)
+            
+    def update_speaker_summary(self, project_id):
+        import os, json
+        stats = {}
+        total_segments = 0
+        total_duration = 0.0
+        aligned_path = os.path.join("projects", project_id, "subtitle", "aligned_transcript.json")
+        if not os.path.exists(aligned_path):
+            aligned_path = os.path.join("projects", project_id, "subtitle", "transcript.json")
+            
+        if os.path.exists(aligned_path):
+            try:
+                with open(aligned_path, "r", encoding="utf-8") as f:
+                    tdata = json.load(f)
+                    for seg in tdata.get("segments", []):
+                        spk = seg.get("speaker_id")
+                        if spk:
+                            if spk not in stats:
+                                stats[spk] = 0
+                            stats[spk] += 1
+                            total_segments += 1
+                            start = seg.get("start", 0.0)
+                            end = seg.get("end", 0.0)
+                            total_duration += (end - start)
+            except Exception:
+                pass
+                
+        num_speakers = len(stats)
+        if num_speakers == 0:
+            return
+            
+        spk_text = "speaker" if num_speakers == 1 else "speakers"
+        summary_text = f"🎤 Detected: {num_speakers} {spk_text} | {total_segments} segments | {total_duration:.1f} sec"
+        self.speaker_summary_label.setText(summary_text)
+        self.speaker_summary_label.setVisible(True)
+
+    def queue_pipeline_finished(self, project_id, exit_code):
+        loc = LocalizationService()
+        self.start_btn.setEnabled(True)
+        self.start_btn.setEnabled(True)
+        self.browse_btn.setEnabled(True)
+        self.input_edit.setEnabled(True)
+        self.src_combo.setEnabled(True)
+        self.target_combo.setEnabled(True)
+        
+        from backend.services.project_repository import ProjectRepository
+        repo = ProjectRepository()
+        try:
+            project_data = repo.load(project_id)
+            self.project_dir = repo.get_project_dir(project_id)
+            mode = project_data.settings_snapshot.output_mode
+        except Exception:
+            self.project_dir = ""
+            mode = "Subtitle + Voice"
+
+        if exit_code == 0:

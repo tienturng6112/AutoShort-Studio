@@ -1,0 +1,48 @@
+{
+    "version": 1,
+    "last_updated": 1784864219.1134756,
+    "characters": [
+        {
+            "character_id": "char_42f47fdb",
+            "display_name": "Speaker A",
+            "aliases": [
+                "Speaker_A"
+            ],
+            "gender": "Unknown",
+            "estimated_age": null,
+            "language": null,
+            "accent": null,
+            "preferred_voice": null,
+            "preferred_provider": null,
+            "emotion_profile": "Neutral",
+            "speech_rate": 1.0,
+            "pitch": 1.0,
+            "volume": 1.0,
+            "notes": null,
+            "favorite": false,
+            "created_at": 1784864219.1119664,
+            "updated_at": 1784864219.111967
+        },
+        {
+            "character_id": "char_52d620e1",
+            "display_name": "Speaker B",
+            "aliases": [
+                "Speaker_B"
+            ],
+            "gender": "Unknown",
+            "estimated_age": null,
+            "language": null,
+            "accent": null,
+            "preferred_voice": null,
+            "preferred_provider": null,
+            "emotion_profile": "Neutral",
+            "speech_rate": 1.0,
+            "pitch": 1.0,
+            "volume": 1.0,
+            "notes": null,
+            "favorite": false,
+            "created_at": 1784864219.113347,
+            "updated_at": 1784864219.1133473
+        }
+    ]
+}

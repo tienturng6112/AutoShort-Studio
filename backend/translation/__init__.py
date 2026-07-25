@@ -1,0 +1,1 @@
+# AutoShort Studio translation package

@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Cache
+cache/
+downloads/
+temp/
+tmp/
+
+# Whisper
+cache/whisper/
+
+# VSCode
+.vscode/
+
+# Logs
+*.log

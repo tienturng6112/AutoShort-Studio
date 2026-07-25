@@ -1,0 +1,38 @@
+{
+  "ElevenLabs": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-23T13:25:36.839410",
+    "reachable": true
+  },
+  "ChatAnywhere": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-23T13:25:36.839410",
+    "reachable": true
+  },
+  "DeepL": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-23T13:25:36.839410",
+    "reachable": true
+  },
+  "Kira": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-23T13:25:36.839410",
+    "reachable": true
+  },
+  "Edge TTS": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-23T13:25:36.839410",
+    "reachable": true
+  },
+  "OmniVoice": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-23T13:25:36.839410",
+    "reachable": true
+  }
+}

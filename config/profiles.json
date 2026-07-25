@@ -1,0 +1,58 @@
+{
+    "profiles": {
+        "Fast": {
+            "translation_provider": "ChatAnywhere",
+            "chatanywhere": {
+                "model": "gpt-3.5-turbo"
+            },
+            "speech_enhancement": "off",
+            "tts_provider": "Edge TTS"
+        },
+        "Standard": {
+            "translation_provider": "ChatAnywhere",
+            "chatanywhere": {
+                "model": "gpt-4o-mini"
+            },
+            "speech_enhancement": "off",
+            "tts_provider": "Edge TTS"
+        },
+        "Cinema": {
+            "translation_provider": "ChatAnywhere",
+            "chatanywhere": {
+                "model": "gpt-4o"
+            },
+            "speech_enhancement": "demucs",
+            "tts_provider": "Kira",
+            "kira": {
+                "model": "kira-3.0-pro-tts"
+            }
+        },
+        "Anime": {
+            "translation_provider": "DeepL",
+            "deepl": {
+                "model": "default"
+            },
+            "speech_enhancement": "off",
+            "tts_provider": "Kira",
+            "kira": {
+                "model": "kira-3.0-flash-tts"
+            }
+        },
+        "Documentary": {
+            "translation_provider": "ChatAnywhere",
+            "chatanywhere": {
+                "model": "gpt-4o-mini"
+            },
+            "speech_enhancement": "demucs",
+            "tts_provider": "Edge TTS"
+        },
+        "Podcast": {
+            "translation_provider": "OpenAI",
+            "speech_enhancement": "demucs",
+            "tts_provider": "Kira",
+            "kira": {
+                "model": "kira-3.0-pro-tts"
+            }
+        }
+    }
+}

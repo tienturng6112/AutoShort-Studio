@@ -1,0 +1,808 @@
+Created At: 2026-07-20T04:02:54Z
+Completed At: 2026-07-20T04:02:54Z
+File Path: `file:///t:/AutoShort%20Studio/backend/run_pipeline.py`
+Total Lines: 838
+Total Bytes: 46112
+Showing lines 1 to 800
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import argparse
+2: import asyncio
+3: import json
+4: import logging
+5: import os
+6: import shutil
+7: import time
+8: from typing import Any, Dict, Optional
+9: from backend.alignment.alignment_service import TimelineAlignmentService
+10: from backend.media.audio_extractor import AudioExtractor
+11: from backend.media.local_importer import LocalImporter
+12: from backend.media.metadata_extractor import MetadataExtractor
+13: from backend.providers.chatanywhere import ChatAnywhereProvider
+14: from backend.providers.manager_impl import ProviderManager
+15: from backend.providers.metadata import ProviderMetadata
+16: from backend.services.llm_service import LLMService
+17: from backend.services.project_service import ProjectService
+18: from backend.speech.models import Transcript, Segment
+19: from backend.speech.speech_service import SpeechBenchmark
+20: from backend.speech.faster_whisper_provider import FasterWhisperProvider
+21: from backend.speech.model_manager import SpeechModelManager
+22: from backend.speech.speech_service import SpeechService
+23: from backend.translation.base_translation_provider import BaseTranslationProvider
+24: from backend.translation.cache import TranslationCache
+25: from backend.translation.chatanywhere_provider import ChatAnywhereTranslationProvider
+26: from backend.translation.glossary import GlossaryManager
+27: from backend.translation.translation_service import TranslationService
+28: from backend.tts.edge_tts_provider import EdgeTTSProvider
+29: from backend.tts.voice_cache import VoiceCache
+30: from backend.tts.voice_service import VoiceService
+31: from backend.core.exceptions import TimelineSynchronizationError
+32: 
+33: class MockTranslationProvider(BaseTranslationProvider):
+34:     """Offline translation provider for robust E2E verification without API keys."""
+35:     
+36:     async def list_models(self) -> list[str]:
+37:         return ["mock-model"]
+38: 
+39:     async def translate_segments(self, segments: list, target_lang: str, glossary = None, context: Optional[str] = None) -> list:
+40:         results = []
+41:         for seg in segments:
+42:             results.append({
+43:                 "id": seg["id"],
+44:                 "text": f"{seg['text']} [Translated to {target_lang}]"
+45:             })
+46:         return results
+47: 
+48: 
+49: async def main() -> None:
+50:     parser = argparse.ArgumentParser(description="AutoShort Studio Alpha 0.1A E2E Pipeline Driver CLI")
+51:     parser.add_argument("--input", help="Path to input video file (required for new projects)")
+52:     parser.add_argument("--project-id", help="Project ID to resume an existing project")
+53:     parser.add_argument("--source-language", default="en", help="Speech recognition source language")
+54:     parser.add_argument("--target-language", default="es", help="Target translation language")
+55:     parser.add_argument("--enhance-speech", action="store_true", help="Enable AI speech enhancement (Demucs separation)")
+56:     parser.add_argument("--output-mode", help="Output mode selection")
+57:     args = parser.parse_args()
+58:     
+59:     if not args.input and not args.project_id:
+60:         parser.error("Either --input or --project-id must be provided.")
+61: 
+62:     # Load settings to resolve output mode
+63:     settings_path = os.path.join("config", "settings.json")
+64:     settings = {}
+65:     if os.path.exists(settings_path):
+66:         try:
+67:             with open(settings_path, "r", encoding="utf-8") as f:
+68:                 settings = json.load(f)
+69:         except Exception:
+70:             pass
+71: 
+72:     output_mode = args.output_mode or settings.get("output_mode", "Subtitle + Voice")
+73:     skip_tts = output_mode == "Subtitle Only"
+74:     skip_video = output_mode in ["Voice Only", "Subtitle + Audio Files"]
+75: 
+76:     from backend.services.project_repository import ProjectRepository
+77:     from backend.models.project_models import ProjectMetadata, ProjectSnapshot, ExecutionState
+78:     from backend.services.pipeline_state_manager import PipelineStateManager
+79:     
+80:     project_repo = ProjectRepository()
+81:     
+82:     if args.project_id:
+83:         project_id = args.project_id
+84:         try:
+85:             project_data = project_repo.load(project_id)
+86:         except FileNotFoundError:
+87:             print(f"Error: Project {project_id} not found.")
+88:             return
+89:             
+90:         project_name = project_data.project_name
+91:         project_dir = project_repo.get_project_dir(project_id)
+92:         output_mode = project_data.settings_snapshot.output_mode
+93:         args.source_language = project_data.languages.get("source", args.source_language)
+94:         args.target_language = project_data.languages.get("target", args.target_language)
+95:     else:
+96:         timestamp = time.strftime("%Y%m%d_%H%M%S")
+97:         project_id = f"project_{timestamp}"
+98:         project_name = f"Project {timestamp}"
+99:         project_dir = project_repo.get_project_dir(project_id)
+100:         
+101:         snapshot = ProjectSnapshot(output_mode=output_mode)
+102:         exec_state = ExecutionState(status="Running")
+103:         project_data = ProjectMetadata(
+104:             project_id=project_id,
+105:             project_name=project_name,
+106:             created_at=time.time(),
+107:             modified_at=time.time(),
+108:             settings_snapshot=snapshot,
+109:             languages={"source": args.source_language, "target": args.target_language},
+110:             execution_state=exec_state
+111:         )
+112:         project_repo.save(project_data)
+113:         
+114:     state_manager = PipelineStateManager(project_id, repository=project_repo)
+115:     state_manager.update_execution_state("Running")
+116: 
+117:     # Configure simultaneous console and file logging directly inside the project folder
+118:     log_format = "%(asctime)s [%(levelname)s] (%(name)s) %(message)s"
+119:     log_file_path = os.path.join(project_dir, "execution.log")
+120:     logging.basicConfig(
+121:         level=logging.INFO,
+122:         format=log_format,
+123:         handlers=[
+124:             logging.StreamHandler(),
+125:             logging.FileHandler(log_file_path, mode="w", encoding="utf-8")
+126:         ]
+127:     )
+128:     logger = logging.getLogger("PipelineRunner")
+129: 
+130:     logger.info("Initializing Alpha 0.1A E2E Pipeline Driver CLI...")
+131:     logger.info(f"Output Mode: {output_mode}")
+132:     start_time = time.perf_counter()
+133: 
+134:     try:
+135:         # 1. Video Import
+136:         logger.info("Stage 1: Video Import started.")
+137:         video_dir = os.path.join(project_dir, "video")
+138:         
+139:         if not state_manager.is_completed("stage_1"):
+140:             input_source = args.input or project_data.input_video
+141:             if not input_source:
+142:                 raise ValueError("No input video source specified in arguments or project metadata.")
+143:                 
+144:             is_youtube = input_source.startswith(("http://", "https://"))
+145:             if is_youtube:
+146:                 if shutil.which("yt-dlp") is None:
+147:                     raise RuntimeError("yt-dlp is required to process YouTube URLs.")
+148:                 logger.info("Downloading YouTube video...")
+149:                 from backend.media.youtube_importer import YoutubeImporter
+150:                 importer = YoutubeImporter()
+151:             else:
+152:                 logger.info("Importing local video...")
+153:                 if not os.path.exists(input_source):
+154:                     raise FileNotFoundError(f"Local input video file not found: {input_source}")
+155:                 importer = LocalImporter()
+156:                 
+157:             video_path = await importer.import_media(input_source, video_dir)
+158:             logger.info(f"Imported video saved to: {video_path}")
+159:             state_manager.set_metadata("video_path", video_path)
+160:             state_manager.mark_completed("stage_1")
+161:         else:
+162:             logger.info("Stage 1: Skipped (Already completed).")
+163:             video_path = state_manager.get_metadata("video_path")
+164: 
+165:         # 2. Audio Extraction
+166:         logger.info("Stage 2: Audio Extraction started.")
+167:         state_manager.update_execution_state("Running", progress=25, current_stage="Stage 2: Audio Extraction")
+168:         audio_dir = os.path.join(project_dir, "audio")
+169:         audio_path = os.path.join(audio_dir, "audio.wav")
+170:         
+171:         if not state_manager.is_completed("stage_2"):
+172:             metadata = MetadataExtractor.extract_metadata(video_path)
+173:             video_duration = metadata.get("duration", 5.0)
+174:             state_manager.set_metadata("video_duration", video_duration)
+175:             logger.info(f"Container metadata resolved: duration={video_duration}s, FPS={metadata.get('fps')}")
+176:             
+177:             AudioExtractor.extract_audio(video_path, audio_path)
+178:             logger.info(f"Extracted WAV audio saved to: {audio_path}")
+179: 
+180:             speech_audio_path = audio_path
+181:             if args.enhance_speech:
+182:                 logger.info("Stage 2.5: AI Speech Enhancement (Demucs) started.")
+183:                 from backend.media.audio_enhancer import DemucsSpeechEnhancer
+184:                 try:
+185:                     vocals_path, background_path = DemucsSpeechEnhancer.separate_audio(
+186:                         input_audio_path=audio_path,
+187:                         output_dir=audio_dir
+188:                     )
+189:                     speech_audio_path = vocals_path
+190:                     logger.info(f"AI Speech Enhancement complete. Vocals track: {vocals_path}, Background track: {background_path}")
+191:                 except Exception as e:
+192:                     logger.error(f"Speech enhancement failed, falling back to original audio: {str(e)}")
+193:             state_manager.set_metadata("speech_audio_path", speech_audio_path)
+194:             state_manager.mark_completed("stage_2")
+195:         else:
+196:             logger.info("Stage 2: Skipped (Already completed).")
+197:             speech_audio_path = state_manager.get_metadata("speech_audio_path", audio_path)
+198:             video_duration = state_manager.get_metadata("video_duration", 5.0)
+199: 
+200:         # 3. Speech Recognition
+201:         logger.info("Stage 3: Speech Recognition started.")
+202:         state_manager.update_execution_state("Running", progress=37, current_stage="Stage 3: Speech Recognition")
+203:         sub_dir = os.path.join(project_dir, "subtitle")
+204:         os.makedirs(sub_dir, exist_ok=True)
+205:         
+206:         if not state_manager.is_completed("stage_3"):
+207:             # Detect faster-whisper package presence
+208:             try:
+209:                 from faster_whisper import WhisperModel
+210:                 has_whisper = True
+211:             except ImportError:
+212:                 has_whisper = False
+213: 
+214:             if not has_whisper:
+215:                 logger.info("faster-whisper package not installed. Using local MockSpeechProvider.")
+216:                 mock_text = "这是一个关于Alpha 0.1A端到端管道测试的视频。" if args.source_language == "zh" else "This is a test speech verification run for Alpha 0.1A pipeline."
+217:                 transcript = Transcript(
+218:                     text=mock_text,
+219:                     language=args.source_language,
+220:                     language_probability=1.0,
+221:                     duration=video_duration,
+222:                     segments=[
+223:                         Segment(
+224:                             id=0,
+225:                             start=0.5,
+226:                             end=max(0.6, video_duration - 0.5),
+227:                             text=mock_text,
+228:                             words=[],
+229:                             confidence=1.0
+230:                         )
+231:                     ]
+232:                 )
+233:                 with open(os.path.join(sub_dir, "transcript.json"), "w", encoding="utf-8") as f:
+234:                     f.write(transcript.to_json())
+235:                 with open(os.path.join(sub_dir, "transcript.srt"), "w", encoding="utf-8") as f:
+236:                     f.write(transcript.to_srt())
+237:                     
+238:                 speech_bench = SpeechBenchmark(
+239:                     model="tiny", device="cpu", execution_time_seconds=0.1, realtime_factor=0.02, memory_usage_mb=10.0
+240:                 )
+241:             else:
+242:                 speech_provider = FasterWhisperProvider()
+243:                 speech_model_manager = SpeechModelManager(models_root=os.path.abspath("cache/whisper"))
+244:                 speech_service = SpeechService(speech_provider, speech_model_manager)
+245:                 
+246:                 transcript, speech_bench = await speech_service.transcribe_audio(
+247:                     audio_path=speech_audio_path,
+248:                     model_size="small",
+249:                     output_dir=sub_dir
+250:                 )
+251:                 
+252:             logger.info(f"Transcription complete. Segments count: {len(transcript.segments)}")
+253: 
+254:             # 3.5: Speaker Diarization
+255:             logger.info("Stage 3.5: Speaker Diarization started.")
+256:             from backend.speech.diarization import DiarizationService, PyannoteDiarizationProvider, MockDiarizationProvider
+257:             
+258:             hf_token = settings.get("hf_token") or os.environ.get("HF_TOKEN")
+259:             diarize_provider = None
+260:             try:
+261:                 import pyannote.audio
+262:                 if hf_token:
+263:                     diarize_provider = PyannoteDiarizationProvider(hf_token=hf_token)
+264:                 else:
+265:                     logger.warning("HF_TOKEN not found in settings or environment. Falling back to MockDiarizationProvider.")
+266:             except ImportError:
+267:                 logger.warning("pyannote.audio is not installed. Falling back to MockDiarizationProvider.")
+268:                 
+269:             if diarize_provider is None:
+270:                 diarize_provider = MockDiarizationProvider()
+271:                 
+272:             diarization_service = DiarizationService(diarize_provider)
+273:             try:
+274:                 speaker_map = diarization_service.diarize_transcript(transcript, speech_audio_path)
+275:                 speaker_map_path = os.path.join(project_dir, "speaker_map.json")
+276:                 with open(speaker_map_path, "w", encoding="utf-8") as f:
+277:                     json.dump(speaker_map, f, indent=4)
+278:                 
+279:                 state_manager.set_metadata("speaker_map", speaker_map)
+280:                 with open("speaker_map.json", "w", encoding="utf-8") as f:
+281:                     json.dump(speaker_map, f, indent=4)
+282:                     
+283:                 with open(os.path.join(sub_dir, "transcript.json"), "w", encoding="utf-8") as f:
+284:                     f.write(transcript.to_json())
+285:                 with open(os.path.join(sub_dir, "transcript.srt"), "w", encoding="utf-8") as f:
+286:                     f.write(transcript.to_srt())
+287:                     
+288:                 logger.info(f"Speaker diarization complete. Mapped {len(speaker_map)} speaker(s).")
+289:             except Exception as e:
+290:                 logger.error(f"Speaker diarization failed: {str(e)}. Continuing without speaker metadata.")
+291:                 
+292:             state_manager.mark_completed("stage_3")
+293:         else:
+294:             logger.info("Stage 3: Skipped (Already completed).")
+295:             with open(os.path.join(sub_dir, "transcript.json"), "r", encoding="utf-8") as f:
+296:                 data = json.load(f)
+297:                 transcript = Transcript(**data)
+298:                 
+299:             speaker_map = state_manager.get_metadata("speaker_map", {})
+300: 
+301:         # 4. Translation
+302:         # 4. Translation
+303:         logger.info("Stage 4: Translation started.")
+304:         state_manager.update_execution_state("Running", progress=50, current_stage="Stage 4: Translation")
+305:         trans_dir = os.path.join(project_dir, "translation")
+306:         os.makedirs(trans_dir, exist_ok=True)
+307:         
+308:         if not state_manager.is_completed("stage_4"):
+309:             settings_path = os.path.join("config", "settings.json")
+310:             settings = {}
+311:             if os.path.exists(settings_path):
+312:                 try:
+313:                     with open(settings_path, "r", encoding="utf-8") as f:
+314:                         settings = json.load(f)
+315:                 except Exception as e:
+316:                     logger.warning(f"Could not load settings.json: {str(e)}")
+317: 
+318:             provider_type = settings.get("translation_provider", "ChatAnywhere")
+319:             trans_cache = TranslationCache(cache_file_path=os.path.join(project_dir, "cache", "translation_cache.json"))
+320:             glossary = GlossaryManager()
+321:             state_file_path = os.path.join(project_dir, "cache", "translation_state.json")
+322:             
+323:             def build_chatanywhere():
+324:                 ca_config = settings.get("chatanywhere", {})
+325:                 api_key = ca_config.get("api_key") or os.getenv("CHATANYWHERE_API_KEY")
+326:                 base_url = ca_config.get("base_url") or "https://api.chatanywhere.tech/v1"
+327:                 model = ca_config.get("model") or "gpt-4o-mini"
+328:                 if api_key:
+329:                     from backend.providers.capabilities import ProviderCapabilities
+330:                     from backend.providers.manager_impl import ProviderManager
+331:                     from backend.providers.metadata import ProviderMetadata
+332:                     from backend.providers.chatanywhere import ChatAnywhereProvider
+333:                     from backend.services.llm_service import LLMService
+334:                     prov_manager = ProviderManager()
+335:                     ca_provider = ChatAnywhereProvider(name="chatanywhere", api_key=api_key, base_url=base_url)
+336:                     meta = ProviderMetadata(
+337:                         provider_id="chatanywhere",
+338:                         display_name="ChatAnywhere",
+339:                         capabilities=ProviderCapabilities(supports_chat=True, supports_json=True)
+340:                     )
+341:                     prov_manager.register_provider("chatanywhere", ca_provider, meta)
+342:                     prov_manager.set_active_provider("chatanywhere")
+343:                     llm_service = LLMService(prov_manager)
+344:                     return ChatAnywhereTranslationProvider(llm_service, model=model)
+345:                 return None
+346: 
+347:             translation_provider = None
+348:             fallback_to_ca = False
+349: 
+350:             if provider_type == "DeepL":
+351:                 deepl_config = settings.get("deepl", {})
+352:                 api_key = deepl_config.get("api_key") or os.getenv("DEEPL_API_KEY")
+353:                 disable_fallback = deepl_config.get("disable_fallback", False)
+354:                 if api_key:
+355:                     try:
+356:                         from backend.translation.deepl_provider import DeepLTranslationProvider
+357:                         full_context = transcript.text if transcript else None
+358:                         translation_provider = DeepLTranslationProvider(api_key=api_key, context=full_context)
+359:                         logger.info("Using active DeepL translation provider.")
+360:                     except Exception as ex:
+361:                         logger.warning(f"Could not build DeepL translation provider: {str(ex)}")
+362:                         if not disable_fallback:
+363:                             fallback_to_ca = True
+364:                 else:
+365:                     logger.warning("DeepL API key not configured in settings.json.")
+366:                     if not disable_fallback:
+367:                         fallback_to_ca = True
+368:             elif provider_type == "ChatAnywhere":
+369:                 try:
+370:                     translation_provider = build_chatanywhere()
+371:                 except Exception as ex:
+372:                     logger.warning(f"Could not build ChatAnywhere LLM client: {str(ex)}")
+373:             elif provider_type in ["OpenAI", "Gemini"]:
+374:                 logger.warning(f"{provider_type} translation provider is currently a placeholder. Falling back to MockTranslationProvider.")
+375: 
+376:             if translation_provider is None and fallback_to_ca:
+377:                 logger.info("DeepL setup failed or unconfigured, falling back to ChatAnywhere.")
+378:                 try:
+379:                     translation_provider = build_chatanywhere()
+380:                 except Exception as ex:
+381:                     logger.warning(f"Could not build fallback ChatAnywhere client: {str(ex)}")
+382: 
+383:             if translation_provider is None:
+384:                 error_msg = "Không có nhà cung cấp dịch thuật nào được cấu hình. Vui lòng kiểm tra API Key."
+385:                 logger.error(error_msg)
+386:                 raise RuntimeError(error_msg)
+387: 
+388:             for seg in transcript.segments:
+389:                 cached_text = trans_cache.get(seg.text, args.target_language)
+390:                 if cached_text is not None:
+391:                     logger.info(f"[DeepLTelemetry] provider={provider_type} latency=0.000s characters={len(seg.text)} retry_count=0 cache_hit_miss=hit")
+392: 
+393:             use_context_translation = settings.get("use_context_translation", True)
+394:             
+395:             def build_conversation_analyzer(translation_prov):
+396:                 use_analyzer = settings.get("use_conversation_analyzer", True)
+397:                 if not use_analyzer:
+398:                     return None
+399:                 from backend.translation.conversation_analyzer import ConversationAnalyzerService
+400:                 from backend.translation.chatanywhere_provider import ChatAnywhereTranslationProvider
+401:                 if isinstance(translation_prov, ChatAnywhereTranslationProvider):
+402:                     return ConversationAnalyzerService(translation_prov._llm_service)
+403:                 ca_config = settings.get("chatanywhere", {})
+404:                 api_key = ca_config.get("api_key") or os.getenv("CHATANYWHERE_API_KEY")
+405:                 if not api_key:
+406:                     return None
+407:                 base_url = ca_config.get("base_url") or "https://api.chatanywhere.tech/v1"
+408:                 model = ca_config.get("model") or "gpt-4o-mini"
+409:                 
+410:                 from backend.providers.capabilities import ProviderCapabilities
+411:                 from backend.providers.manager_impl import ProviderManager
+412:                 from backend.providers.metadata import ProviderMetadata
+413:                 from backend.services.llm_service import LLMService
+414:                 from backend.providers.chatanywhere import ChatAnywhereProvider
+415:                 prov_manager = ProviderManager()
+416:                 ca_provider = ChatAnywhereProvider(name="chatanywhere", api_key=api_key, base_url=base_url)
+417:                 meta = ProviderMetadata(
+418:                     provider_id="chatanywhere", display_name="ChatAnywhere",
+419:                     capabilities=ProviderCapabilities(supports_chat=True, supports_json=True)
+420:                 )
+421:                 prov_manager.register_provider("chatanywhere", ca_provider, meta)
+422:                 prov_manager.set_active_provider("chatanywhere")
+423:                 llm_service = LLMService(prov_manager)
+424:                 return ConversationAnalyzerService(llm_service, model=model)
+425:             
+426:             def build_translation_service(provider):
+427:                 if use_context_translation:
+428:                     from backend.translation.scene_builder import SceneBuilder
+429:                     from backend.translation.context_builder import TranslationContextBuilder
+430:                     from backend.translation.translation_memory import TranslationMemory
+431:                     from backend.translation.intelligent_engine import IntelligentTranslationEngine
+432:                     
+433:                     analyzer = build_conversation_analyzer(provider)
+434:                     context_builder = TranslationContextBuilder(SceneBuilder(), analyzer)
+435:                     memory = TranslationMemory(project_id=args.project_id)
+436:                     return IntelligentTranslationEngine(
+437:                         provider=provider,
+438:                         cache=trans_cache,
+439:                         glossary_manager=glossary,
+440:                         context_builder=context_builder,
+441:                         translation_memory=memory
+442:                     )
+443:                 else:
+444:                     return TranslationService(provider, trans_cache, glossary)
+445:                     
+446:             translation_service = build_translation_service(translation_provider)
+447:             quality_setting = settings.get("translation_quality", "Balanced")
+448:             
+449:             translated_transcript = None
+450:             try:
+451:                 # Duck typing for the new engine vs old service
+452:                 if hasattr(translation_service, "average_quality_score"):
+453:                     translated_transcript = await translation_service.translate_transcript(
+454:                         transcript=transcript, target_lang=args.target_language,
+455:                         quality_setting=quality_setting,
+456:                         state_file_path=state_file_path, output_dir=trans_dir
+457:                     )
+458:                     score = translation_service.average_quality_score
+459:                     print(f"[Translation Quality Score] {score:.1f}%", flush=True)
+460:                 else:
+461:                     translated_transcript = await translation_service.translate_transcript(
+462:                         transcript=transcript, target_lang=args.target_language,
+463:                         state_file_path=state_file_path, output_dir=trans_dir
+464:                     )
+465:             except Exception as e:
+466:                 if provider_type == "DeepL":
+467:                     deepl_config = settings.get("deepl", {})
+468:                     disable_fallback = deepl_config.get("disable_fallback", False)
+469:                     if not disable_fallback:
+470:                         logger.warning(f"DeepL translation execution failed ({str(e)}). Falling back to ChatAnywhere...")
+471:                         try:
+472:                             ca_provider = build_chatanywhere()
+473:                             if ca_provider:
+474:                                 translation_service = build_translation_service(ca_provider)
+475:                                 if hasattr(translation_service, "average_quality_score"):
+476:                                     translated_transcript = await translation_service.translate_transcript(
+477:                                         transcript=transcript, target_lang=args.target_language,
+478:                                         quality_setting=quality_setting,
+479:                                         state_file_path=state_file_path, output_dir=trans_dir
+480:                                     )
+481:                                     score = translation_service.average_quality_score
+482:                                     print(f"[Translation Quality Score] {score:.1f}%", flush=True)
+483:                                 else:
+484:                                     translated_transcript = await translation_service.translate_transcript(
+485:                                         transcript=transcript, target_lang=args.target_language,
+486:                                         state_file_path=state_file_path, output_dir=trans_dir
+487:                                     )
+488:                                 logger.info("Fallback ChatAnywhere translation complete.")
+489:                         except Exception as fallback_err:
+490:                             logger.error(f"Fallback to ChatAnywhere also failed: {str(fallback_err)}")
+491:                 
+492:                 if translated_transcript is None:
+493:                     error_str = str(e).lower()
+494:                     friendly_msg = "Lỗi không xác định từ nhà cung cấp dịch thuật."
+495:                     
+496:                     if "429" in error_str or "too many requests" in error_str or "quota" in error_str:
+497:                         friendly_msg = "Giới hạn quota API hàng ngày đã hết hoặc bạn đang bị chặn do vượt quá số lần yêu cầu."
+498:                     elif "401" in error_str or "invalid api key" in error_str or "unauthorized" in error_str:
+499:                         friendly_msg = "API Key không hợp lệ. Vui lòng kiểm tra lại cấu hình."
+500:                     elif "404" in error_str or "model not found" in error_str:
+501:                         friendly_msg = "Model dịch thuật không tồn tại hoặc bạn không có quyền truy cập."
+502:                     elif "408" in error_str or "timeout" in error_str:
+503:                         friendly_msg = "Quá thời gian kết nối (Timeout). Vui lòng thử lại sau."
+504:                     elif "network" in error_str or "connection" in error_str:
+505:                         friendly_msg = "Lỗi kết nối mạng. Không thể kết nối tới nhà cung cấp."
+506:                         
+507:                     logger.error(f"Translation stage encountered critical failure: {str(e)}. Message: {friendly_msg}")
+508:                     raise RuntimeError(f"Lỗi Dịch Thuật: {friendly_msg} ({str(e)})")
+509: 
+510:             logger.info("Translation complete.")
+511:             state_manager.mark_completed("stage_4")
+512:         else:
+513:             logger.info("Stage 4: Skipped (Already completed).")
+514:             with open(os.path.join(trans_dir, "translated_transcript.json"), "r", encoding="utf-8") as f:
+515:                 data = json.load(f)
+516:                 translated_transcript = Transcript(**data)
+517: 
+518:         # 5. Timeline Alignment
+519:         logger.info("Stage 5: Timeline Alignment started.")
+520:         state_manager.update_execution_state("Running", progress=62, current_stage="Stage 5: Timeline Alignment")
+521:         if not state_manager.is_completed("stage_5"):
+522:             alignment_service = TimelineAlignmentService()
+523:             aligned_transcript = await alignment_service.align_transcript(
+524:                 transcript=translated_transcript,
+525:                 output_dir=sub_dir,
+526:                 video_duration=video_duration
+527:             )
+528:             logger.info("Timeline alignment complete.")
+529:             state_manager.mark_completed("stage_5")
+530:         else:
+531:             logger.info("Stage 5: Skipped (Already completed).")
+532:             with open(os.path.join(sub_dir, "aligned_transcript.json"), "r", encoding="utf-8") as f:
+533:                 data = json.load(f)
+534:                 aligned_transcript = Transcript(**data)
+535: 
+536:         # 6. Voice Synthesis
+537:         tts_bench = None
+538:         if not skip_tts:
+539:             logger.info("Stage 6: Voice Synthesis started.")
+540:             state_manager.update_execution_state("Running", progress=75, current_stage="Stage 6: Voice Synthesis")
+541:             
+542:             render_dir = os.path.join(project_dir, "render")
+543:             tts_dir = os.path.join(project_dir, "tts")
+544:             os.makedirs(render_dir, exist_ok=True)
+545:             os.makedirs(tts_dir, exist_ok=True)
+546:             
+547:             if not state_manager.is_completed("stage_6"):
+548:                 if "settings" not in locals() or not settings:
+549:                     settings_path = os.path.join("config", "settings.json")
+550:                     settings = {}
+551:                     if os.path.exists(settings_path):
+552:                         try:
+553:                             with open(settings_path, "r", encoding="utf-8") as f:
+554:                                 settings = json.load(f)
+555:                         except Exception as e:
+556:                             logger.warning(f"Could not load settings.json in Stage 6: {str(e)}")
+557:                 tts_type = settings.get("tts_provider", "Edge TTS")
+558:                 from backend.tts.tts_provider import TTSProviderFactory
+559:                 tts_provider = TTSProviderFactory.create(tts_type, settings)
+560:                 voice_cache = VoiceCache(cache_dir=os.path.join(project_dir, "cache", "voice_cache"))
+561:                 voice_service = VoiceService(tts_provider, voice_cache, temp_dir=os.path.join(project_dir, "cache"))
+562:                 
+563:                 target_lang = aligned_transcript.language.lower() if aligned_transcript.language else args.target_language.lower()
+564:                 voice_name = "en-US-GuyNeural"
+565:                 
+566:                 try:
+567:                     voices = await tts_provider.list_voices()
+568:                     target_voices = []
+569:                     for v in voices:
+570:                         v_lang = v.get("language", "").lower()
+571:                         if target_lang in v_lang:
+572:                             target_voices.append(v)
+573:                     if target_voices:
+574:                         neural_voices = [v["name"] for v in target_voices if "Neural" in v.get("name", "")]
+575:                         if neural_voices:
+576:                             voice_name = neural_voices[0]
+577:                         else:
+578:                             voice_name = target_voices[0]["name"]
+579:                     else:
+580:                         if voices:
+581:                             voice_name = voices[0]["name"]
+582:                 except Exception as e:
+583:                     logger.warning(f"Could not dynamically query voice for language {target_lang}: {str(e)}")
+584: 
+585:                 speaker_voices = settings.get("speaker_voices", {})
+586:                 voice_mode = settings.get("voice_mode", "SINGLE")
+587:                 
+588:                 if voice_mode == "SINGLE":
+589:                     global_voice = settings.get("global_voice", "")
+590:                     if not global_voice and speaker_voices:
+591:                         global_voice = next(iter(speaker_voices.values()))
+592:                     if global_voice:
+593:                         speaker_voices = {}
+594:                         for seg in aligned_transcript.segments:
+595:                             if seg.speaker_id:
+596:                                 speaker_voices[seg.speaker_id] = global_voice
+597:                                 
+598:                 logger.info(f"[DEBUG] Selected provider: {tts_type}")
+599:                 logger.info(f"[DEBUG] Voice Mode: {voice_mode}")
+600:                 logger.info(f"[DEBUG] Speaker mapping: {speaker_voices}")
+601:                 logger.info(f"[DEBUG] Resolved default voice: {voice_name}")
+602: 
+603:                 final_wav, final_mp3, tts_bench = await voice_service.synthesize_transcript(
+604:                     transcript=aligned_transcript,
+605:                     voice_name=voice_name,
+606:                     output_dir=render_dir,
+607:                     tts_dir=tts_dir,
+608:                     speaker_voices=speaker_voices
+609:                 )
+610:                 logger.info("Voice synthesis complete.")
+611:                 state_manager.set_metadata("final_wav", final_wav)
+612:                 state_manager.set_metadata("final_mp3", final_mp3)
+613:                 # We can serialize tts_bench info if needed, but not critical for resume
+614:                 state_manager.mark_completed("stage_6")
+615:             else:
+616:                 logger.info("Stage 6: Skipped (Already completed).")
+617:                 final_wav = state_manager.get_metadata("final_wav")
+618:                 final_mp3 = state_manager.get_metadata("final_mp3")
+619:         else:
+620:             logger.info("Stage 6: Voice Synthesis skipped (Subtitle Only mode).")
+621: 
+622:         # 7. Export Outputs
+623:         logger.info("Stage 7: Exporting results.")
+624:         state_manager.update_execution_state("Running", progress=87, current_stage="Stage 7: Export")
+625:         voice_wav_dest = None
+626:         voice_mp3_dest = None
+627:         video_dur = state_manager.get_metadata("video_duration", 5.0)
+628:         narr_dur = 0.0
+629:         
+630:         if not state_manager.is_completed("stage_7"):
+631:             if not skip_tts:
+632:                 voice_wav_dest = os.path.join(project_dir, "voice.wav")
+633:                 voice_mp3_dest = os.path.join(project_dir, "voice.mp3")
+634:                 if final_wav and os.path.exists(final_wav):
+635:                     shutil.copy2(final_wav, voice_wav_dest)
+636:                 if final_mp3 and os.path.exists(final_mp3):
+637:                     shutil.copy2(final_mp3, voice_mp3_dest)
+638:                 logger.info(f"Saved voice.wav and voice.mp3 to: {project_dir}")
+639: 
+640:                 try:
+641:                     import wave
+642:                     if voice_wav_dest and os.path.exists(voice_wav_dest):
+643:                         with wave.open(voice_wav_dest, "rb") as wfile:
+644:                             narr_dur = wfile.getnframes() / float(wfile.getframerate())
+645:                 except Exception as e:
+646:                     raise RuntimeError(f"Could not verify voice.wav duration: {str(e)}")
+647: 
+648:                 if abs(narr_dur - video_dur) > 0.100:
+649:                     logger.warning(
+650:                         f"Timeline verification mismatch: Narration duration {narr_dur:.3f}s "
+651:                         f"differs from video duration {video_dur:.3f}s by more than 100 ms."
+652:                     )
+653:                 logger.info(f"Verification SUCCESS: voice.wav duration ({narr_dur:.3f}s) matches video duration ({video_dur:.3f}s) within 100 ms.")
+654:             else:
+655:                 logger.info("Skipping voice file export and duration verification (Subtitle Only mode).")
+656: 
+657:             # Export subtitle.srt if available
+658:             subtitle_srt_src = os.path.join(project_dir, "subtitle", "aligned_transcript.srt")
+659:             subtitle_srt_dest = os.path.join(project_dir, "subtitle.srt")
+660:             has_subtitles = False
+661:             if os.path.exists(subtitle_srt_src):
+662:                 try:
+663:                     shutil.copy2(subtitle_srt_src, subtitle_srt_dest)
+664:                     logger.info(f"Saved subtitle.srt to: {project_dir}")
+665:                     has_subtitles = True
+666:                 except Exception as e:
+667:                     logger.warning(f"Could not copy subtitle.srt to project dir: {str(e)}")
+668:             
+669:             state_manager.set_metadata("voice_wav_dest", voice_wav_dest)
+670:             state_manager.set_metadata("voice_mp3_dest", voice_mp3_dest)
+671:             state_manager.set_metadata("narr_dur", narr_dur)
+672:             state_manager.set_metadata("has_subtitles", has_subtitles)
+673:             state_manager.set_metadata("subtitle_srt_dest", subtitle_srt_dest)
+674:             state_manager.mark_completed("stage_7")
+675:         else:
+676:             logger.info("Stage 7: Skipped (Already completed).")
+677:             voice_wav_dest = state_manager.get_metadata("voice_wav_dest")
+678:             voice_mp3_dest = state_manager.get_metadata("voice_mp3_dest")
+679:             narr_dur = state_manager.get_metadata("narr_dur", 0.0)
+680:             has_subtitles = state_manager.get_metadata("has_subtitles", False)
+681:             subtitle_srt_dest = state_manager.get_metadata("subtitle_srt_dest")
+682: 
+683:         # 8. Video and Audio Composition (Stitch Video)
+684:         final_mp4_dest = os.path.join(project_dir, "final.mp4")
+685:         if not skip_video:
+686:             logger.info("Stage 8: Video and Audio Composition started.")
+687:             state_manager.update_execution_state("Running", progress=95, current_stage="Stage 8: Video rendering")
+688:             if not state_manager.is_completed("stage_8"):
+689:                 stitched = False
+690:                 import subprocess
+691: 
+692:                 if has_subtitles and subtitle_srt_dest:
+693:                     try:
+694:                         # Fix Windows subtitle path escaping (escape colon for FFmpeg filter)
+695:                         sub_path_fw = subtitle_srt_dest.replace("\\", "/").replace(":", "\\:")
+696:                         if skip_tts:
+697:                             logger.info("Attempting to assemble final.mp4 with burned subtitles (original audio).")
+698:                             cmd = [
+699:                                 "ffmpeg", "-y",
+700:                                 "-i", video_path,
+701:                                 "-c:v", "libx264",
+702:                                 "-c:a", "aac",
+703:                                 "-vf", f"subtitles='{sub_path_fw}'",
+704:                                 final_mp4_dest
+705:                             ]
+706:                         else:
+707:                             logger.info("Attempting to assemble final.mp4 with audio replacement and burned subtitles.")
+708:                             cmd = [
+709:                                 "ffmpeg", "-y",
+710:                                 "-i", video_path,
+711:                                 "-i", voice_wav_dest,
+712:                                 "-map", "0:v",
+713:                                 "-map", "1:a",
+714:                                 "-c:v", "libx264",
+715:                                 "-c:a", "aac",
+716:                                 "-vf", f"subtitles='{sub_path_fw}'",
+717:                                 final_mp4_dest
+718:                             ]
+719:                         result = subprocess.run(cmd, capture_output=True, text=False, check=False)
+720:                         stdout_str = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+721:                         stderr_str = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
+722:                         if result.returncode != 0:
+723:                             raise subprocess.CalledProcessError(
+724:                                 returncode=result.returncode,
+725:                                 cmd=cmd,
+726:                                 output=stdout_str,
+727:                                 stderr=stderr_str
+728:                             )
+729:                         logger.info("Successfully generated final.mp4 with burned subtitles.")
+730:                         stitched = True
+731:                     except Exception as e:
+732:                         logger.warning(f"Failed to generate final.mp4 with burned subtitles: {str(e)}.")
+733:                         if not skip_tts:
+734:                             logger.info("Falling back to audio-only replacement.")
+735:                         else:
+736:                             logger.error("No valid fallback available (Subtitle Only mode).")
+737:                             raise e
+738: 
+739:                 if not stitched and not skip_tts:
+740:                     logger.info("Assembling final.mp4 with audio replacement only (no burned subtitles).")
+741:                     cmd = [
+742:                         "ffmpeg", "-y",
+743:                         "-i", video_path,
+744:                         "-i", voice_wav_dest,
+745:                         "-map", "0:v",
+746:                         "-map", "1:a",
+747:                         "-c:v", "copy",
+748:                         "-c:a", "aac",
+749:                         final_mp4_dest
+750:                     ]
+751:                     try:
+752:                         result = subprocess.run(cmd, capture_output=True, text=False, check=False)
+753:                         stdout_str = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+754:                         stderr_str = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
+755:                         if result.returncode != 0:
+756:                             raise subprocess.CalledProcessError(
+757:                                 returncode=result.returncode,
+758:                                 cmd=cmd,
+759:                                 output=stdout_str,
+760:                                 stderr=stderr_str
+761:                             )
+762:                         logger.info("Successfully generated final.mp4 with audio replacement only.")
+763:                         stitched = True
+764:                     except Exception as e:
+765:                         logger.error(f"Failed to generate final.mp4 during audio-only fallback: {str(e)}")
+766:                         raise e
+767:                 
+768:                 # Verification step
+769:                 if not os.path.exists(final_mp4_dest):
+770:                     raise RuntimeError(f"Expected output video file not found at: {final_mp4_dest}")
+771:                 
+772:                 state_manager.mark_completed("stage_8")
+773:             else:
+774:                 logger.info("Stage 8: Skipped (Already completed).")
+775:         else:
+776:             logger.info("Stage 8: Video and Audio Composition skipped (requested output mode does not compile a final video).")
+777: 
+778:         # Generate sync_report.json
+779:         sub_dur = aligned_transcript.duration if aligned_transcript and aligned_transcript.segments else 0.0
+780:         diff_ms = abs(video_dur - narr_dur) * 1000.0 if not skip_tts else 0.0
+781:         sync_report = {
+782:             "video_duration": video_dur,
+783:             "narration_duration": narr_dur,
+784:             "subtitle_duration": sub_dur,
+785:             "difference_ms": diff_ms
+786:         }
+787:         try:
+788:             with open(os.path.join(project_dir, "sync_report.json"), "w", encoding="utf-8") as f:
+789:                 json.dump(sync_report, f, indent=4)
+790:             with open("sync_report.json", "w", encoding="utf-8") as f:
+791:                 json.dump(sync_report, f, indent=4)
+792:             logger.info("Saved sync_report.json to project directory and workspace root.")
+793:         except Exception as e:
+794:             logger.warning(f"Could not save sync_report.json: {str(e)}")
+795: 
+796:         state_manager.update_execution_state("Completed", progress=100, current_stage="Completed")
+797:         
+798:         report = {
+799:             "status": "success",
+800:             "total_duration_seconds": video_dur,
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

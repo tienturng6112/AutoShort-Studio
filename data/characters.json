@@ -1,0 +1,46 @@
+{
+    "version": 1,
+    "last_updated": 1784529646.4436493,
+    "characters": [
+        {
+            "character_id": "char_1c3d4390",
+            "display_name": "New Character",
+            "aliases": [],
+            "gender": "Male",
+            "estimated_age": null,
+            "language": null,
+            "accent": null,
+            "preferred_voice": null,
+            "preferred_provider": null,
+            "emotion_profile": "Neutral",
+            "speech_rate": 1.0,
+            "pitch": 1.0,
+            "volume": 1.0,
+            "notes": null,
+            "favorite": false,
+            "created_at": 1784529622.7638323,
+            "updated_at": 1784529626.7309873
+        },
+        {
+            "character_id": "char_bb5de6b4",
+            "display_name": "New Character",
+            "aliases": [
+                "d"
+            ],
+            "gender": "Male",
+            "estimated_age": null,
+            "language": null,
+            "accent": null,
+            "preferred_voice": null,
+            "preferred_provider": null,
+            "emotion_profile": "Happy",
+            "speech_rate": 1.0,
+            "pitch": 1.0,
+            "volume": 1.0,
+            "notes": null,
+            "favorite": false,
+            "created_at": 1784529639.7713516,
+            "updated_at": 1784529646.4435108
+        }
+    ]
+}

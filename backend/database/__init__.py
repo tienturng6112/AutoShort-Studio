@@ -1,0 +1,1 @@
+# AutoShort Studio database package

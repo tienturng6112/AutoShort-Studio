@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "template_id": "podcast",
+    "name": "Podcast Workflow",
+    "description": "Optimized for long-form audio. Skips video rendering, deep speaker diarization.",
+    "category": "Podcast",
+    "version": "1.0.0",
+    "author": "User",
+    "created_at": 1784529385.2105453,
+    "updated_at": 1784529385.2107446,
+    "compatible_app_version": "1.0.0",
+    "tags": [
+      "audio",
+      "long-form"
+    ],
+    "favorite": false
+  },
+  "payload": {
+    "translation_settings": {},
+    "voice_settings": {},
+    "character_profiles": {},
+    "emotion_presets": {},
+    "pipeline_options": {
+      "skip_video_rendering": true,
+      "diarization": "deep"
+    },
+    "subtitle_settings": {},
+    "render_settings": {},
+    "plugin_configuration": {}
+  }
+}

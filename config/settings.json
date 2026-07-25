@@ -1,0 +1,62 @@
+{
+    "processing_profile": "T\u00f9y ch\u1ec9nh",
+    "use_context_translation": true,
+    "use_conversation_analyzer": true,
+    "translation_quality": "Balanced",
+    "translation_provider": "chatanywhere",
+    "speech_enhancement": "off",
+    "speech_provider": "edge",
+    "language": "vi",
+    "voice_mode": "MULTI",
+    "global_voice": "",
+    "speaker_voices": {},
+    "output_mode": "video",
+    "providers": {
+        "chatanywhere": {
+            "api_key": "sk-gfRG4jEKkhRKlSJOoaUFfqnbntwj34pxURwGef9QvoMbAxQr",
+            "base_url": "https://api.chatanywhere.tech/v1",
+            "model": "gpt-4o-mini",
+            "timeout": 30,
+            "max_tokens": 2048,
+            "temperature": 0.7
+        },
+        "deepl": {
+            "api_key": "",
+            "model": "default"
+        },
+        "google": {
+            "api_key": ""
+        },
+        "gemini": {
+            "use_custom_key": false,
+            "api_key": "",
+            "model": "",
+            "voice": "",
+            "language": "English (en-US)",
+            "style": "",
+            "speed": 1.0,
+            "pitch": 0
+        },
+        "openai": {
+            "api_key": "",
+            "model": "gpt-4o-mini"
+        },
+        "elevenlabs": {
+            "api_key": "",
+            "model": "eleven_multilingual_v2"
+        },
+        "kira": {
+            "api_key": "",
+            "base_url": "",
+            "model": "kira-3.0-flash-tts",
+            "speed": 1.0
+        }
+    },
+    "llm_provider": "chatanywhere",
+    "output_format": "mp4",
+    "subtitle_enabled": false,
+    "subtitle_style": "classic",
+    "subtitle_fontsize": 24,
+    "bg_music_enabled": false,
+    "bg_music_volume": 30
+}
