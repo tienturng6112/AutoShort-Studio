@@ -1,0 +1,48 @@
+backend\core\migration.py:20:        provider_keys = ["chatanywhere", "deepl", "google", "gemini", "openai", "kira", "gemini_tts", "elevenlabs"]
+backend\core\migration.py:24:                # Kira is now elevenlabs
+backend\core\migration.py:36:            elif tts_val == "Kira":
+backend\providers\provider_registry.py:153:        kira = ProviderMetadata(
+backend\providers\provider_registry.py:154:            provider_id="Kira",
+backend\providers\provider_registry.py:155:            display_name="Kira AI",
+backend\providers\provider_registry.py:170:        self.register(kira)
+backend\providers\speech\manager.py:64:            provider_id: Provider identifier (gemini, kira, elevenlabs, omnivoice, edge).
+backend\providers\speech\manager.py:79:        elif provider_id == "kira":
+backend\providers\speech\manager.py:80:            from backend.providers.speech.elevenlabs.kira_provider import KiraProvider
+backend\providers\speech\manager.py:81:            config = settings.get("kira", settings.get("providers", {}).get("kira", {}))
+backend\providers\speech\manager.py:86:            provider = KiraProvider(
+backend\providers\speech\manager.py:88:                model=config.get("model", "kira-3.0-flash-tts"),
+backend\run_pipeline.py:755:                elif tts_type == "kira":
+backend\run_pipeline.py:756:                    from backend.providers.speech.elevenlabs.kira_provider import KiraProvider
+backend\run_pipeline.py:757:                    tts_provider = KiraProvider(api_key=config.get("api_key"), model=config.get("model", "kira-3.0-flash-tts"))
+backend\services\profile_service.py:25:            "tts_provider": "Kira",
+backend\services\profile_service.py:26:            "kira": {"model": "kira-3.0-pro-tts"}
+backend\services\profile_service.py:32:            "tts_provider": "Kira",
+backend\services\profile_service.py:33:            "kira": {"model": "kira-3.0-flash-tts"}
+backend\services\profile_service.py:44:            "tts_provider": "Kira",
+backend\services\profile_service.py:45:            "kira": {"model": "kira-3.0-pro-tts"}
+backend\tests\test_regression_suite.py:111:    providers = ["gemini", "kira", "elevenlabs", "omnivoice", "edge"]
+backend\tests\test_regression_suite.py:114:        "kira": {"api_key": "dummy"},
+backend\tests\test_regression_suite.py:148:    window._state.speech_provider = "kira"
+backend\tests\test_regression_suite.py:149:    assert "kira" in window.tts_provider_combo.currentText().lower()
+backend\tests\test_regression_suite.py:150:    assert window.speech_stacked_widget.currentWidget() == window.kira_group
+backend\tests\test_regression_suite.py:164:    ("speech", "kira"),
+backend\tests\test_regression_suite.py:182:        "kira": {"api_key": "dummy"},
+backend\tests\test_regression_suite.py:226:@pytest.mark.parametrize("provider_id", ["gemini", "kira", "elevenlabs", "omnivoice", "edge"])
+backend\tests\test_regression_suite.py:233:        "kira": {"api_key": "dummy"},
+backend\tests\test_regression_suite.py:258:        "TestKiraConnectionWorker",
+backend\tests\test_regression_suite.py:319:    models = await facade.refresh_models("kira")
+backend\tests\test_regression_suite.py:678:    sw.kira_api_key = "test_kira_key"
+backend\tests\test_voice_synthesis.py:221:@patch("backend.tts.kira_provider.httpx.AsyncClient")
+backend\tests\test_voice_synthesis.py:222:async def test_kira_provider_and_factory(mock_async_client: MagicMock) -> None:
+backend\tests\test_voice_synthesis.py:237:    mock_post_resp.content = b"kira mp3 bytes output"
+backend\tests\test_voice_synthesis.py:255:        "tts_provider": "Kira",
+backend\tests\test_voice_synthesis.py:256:        "kira": {
+backend\tests\test_voice_synthesis.py:258:            "model": "kira-3.0-flash-tts",
+backend\tests\test_voice_synthesis.py:263:    provider = TTSProviderFactory.create("Kira", settings)
+backend\tests\test_voice_synthesis.py:266:    assert provider._model == "kira-3.0-flash-tts"
+backend\tests\test_voice_synthesis.py:286:            assert w.readframes(w.getnframes()) == b"kira mp3 bytes outpu"
+backend\tests\test_voice_synthesis.py:295:        assert w.readframes(w.getnframes()) == b"kira mp3 bytes outpu"
+backend\tests\test_voice_synthesis.py:313:@patch("backend.tts.kira_provider.httpx.AsyncClient")
+backend\tests\test_voice_synthesis.py:314:async def test_kira_provider_voice_validation(mock_async_client: MagicMock) -> None:
+backend\tests\test_voice_synthesis.py:326:    from backend.tts.kira_provider import KiraProvider
+backend\tests\test_voice_synthesis.py:327:    provider = KiraProvider(api_key="test-key")

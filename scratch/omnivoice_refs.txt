@@ -1,0 +1,16 @@
+backend\models\model_manager.py:10:    """Manages local AI models (OmniVoice, etc.) including downloading, verification, and deletion."""
+backend\models\model_manager.py:40:        """Switches the active model for a specific engine (e.g. omnivoice)."""
+backend\models\model_manager.py:50:        model_path = os.path.join(self.models_dir, "omnivoice", model_id)
+backend\models\model_manager.py:59:            "name": f"OmniVoice {model_id.capitalize()}",
+backend\models\model_manager.py:62:            "engine": "omnivoice"
+backend\providers\provider_registry.py:172:        omnivoice = ProviderMetadata(
+backend\providers\provider_registry.py:173:            provider_id="OmniVoice",
+backend\providers\provider_registry.py:174:            display_name="OmniVoice AI",
+backend\providers\provider_registry.py:189:        self.register(omnivoice)
+backend\providers\speech\manager.py:64:            provider_id: Provider identifier (gemini, kira, elevenlabs, omnivoice, edge).
+backend\providers\speech\manager.py:98:        elif provider_id == "omnivoice":
+backend\providers\speech\manager.py:99:            from backend.providers.tts.omnivoice_provider import OmniVoiceProvider
+backend\providers\speech\manager.py:100:            provider = OmniVoiceProvider()
+backend\tests\test_regression_suite.py:111:    providers = ["gemini", "kira", "elevenlabs", "omnivoice", "edge"]
+backend\tests\test_regression_suite.py:166:    ("speech", "omnivoice"),
+backend\tests\test_regression_suite.py:226:@pytest.mark.parametrize("provider_id", ["gemini", "kira", "elevenlabs", "omnivoice", "edge"])

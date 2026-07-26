@@ -17,11 +17,10 @@ def migrate_settings(settings_path: str):
             modified = True
             
         # Providers to migrate
-        provider_keys = ["chatanywhere", "deepl", "google", "gemini", "openai", "kira", "gemini_tts", "elevenlabs"]
+        provider_keys = ["chatanywhere", "deepl", "elevenlabs"]
         
         for key in provider_keys:
             if key in data:
-                # Kira is now elevenlabs
                 target_key = key
                 if target_key not in data["providers"]:
                     data["providers"][target_key] = data[key]
@@ -33,8 +32,6 @@ def migrate_settings(settings_path: str):
             tts_val = data["tts_provider"]
             if tts_val == "Edge TTS":
                 data["speech_provider"] = "edge"
-            elif tts_val == "Kira":
-                data["speech_provider"] = "elevenlabs"
             else:
                 data["speech_provider"] = tts_val.lower()
             del data["tts_provider"]

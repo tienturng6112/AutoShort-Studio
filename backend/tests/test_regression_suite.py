@@ -57,7 +57,7 @@ def test_translation_providers_are_not_abstract():
     from backend.providers.translation.manager import TranslationProviderManager
     
     manager = TranslationProviderManager()
-    providers_to_test = ["chatanywhere", "deepl", "gemini", "google", "openai"]
+    providers_to_test = ["chatanywhere", "deepl"]
     
     class MockLLMService:
         def __init__(self):
@@ -71,10 +71,7 @@ def test_translation_providers_are_not_abstract():
     mock_llm = MockLLMService()
     dummy_settings = {
         "chatanywhere": {"api_key": "dummy"},
-        "deepl": {"api_key": "dummy"},
-        "gemini": {"api_key": "dummy"},
-        "google": {"api_key": "dummy"},
-        "openai": {"api_key": "dummy"}
+        "deepl": {"api_key": "dummy"}
     }
     
     for pid in providers_to_test:
@@ -86,12 +83,9 @@ def test_llm_providers_lifecycle():
     from backend.providers.llm.manager import LLMProviderManager
     
     manager = LLMProviderManager()
-    providers = ["chatanywhere", "gemini", "openai", "claude"]
+    providers = ["chatanywhere"]
     dummy_settings = {
-        "chatanywhere": {"api_key": "dummy", "base_url": "http://dummy"},
-        "gemini": {"api_key": "dummy"},
-        "openai": {"api_key": "dummy"},
-        "claude": {"api_key": "dummy"}
+        "chatanywhere": {"api_key": "dummy", "base_url": "http://dummy"}
     }
     
     for pid in providers:
@@ -108,10 +102,8 @@ def test_speech_providers_lifecycle():
     from backend.providers.speech.manager import SpeechProviderManager
     
     manager = SpeechProviderManager()
-    providers = ["gemini", "kira", "elevenlabs", "omnivoice", "edge"]
+    providers = ["elevenlabs", "edge"]
     dummy_settings = {
-        "gemini": {"api_key": "dummy"},
-        "kira": {"api_key": "dummy"},
         "elevenlabs": {"api_key": "dummy"}
     }
     
@@ -145,10 +137,6 @@ def test_ui_provider_state_synchronization():
     assert window.trans_stack.currentWidget() == window.trans_widgets["ChatAnywhere"]
     
     # 2. Test speech provider state change updates combo and stacked widget
-    window._state.speech_provider = "kira"
-    assert "kira" in window.tts_provider_combo.currentText().lower()
-    assert window.speech_stacked_widget.currentWidget() == window.kira_group
-    
     window._state.speech_provider = "edge"
     assert "edge" in window.tts_provider_combo.currentText().lower()
     assert window.speech_stacked_widget.currentWidget() == window.edge_tts_group
@@ -157,18 +145,9 @@ def test_ui_provider_state_synchronization():
 @pytest.mark.parametrize("provider_type, provider_id", [
     ("translation", "chatanywhere"),
     ("translation", "deepl"),
-    ("translation", "gemini"),
-    ("translation", "google"),
-    ("translation", "openai"),
-    ("speech", "gemini"),
-    ("speech", "kira"),
     ("speech", "elevenlabs"),
-    ("speech", "omnivoice"),
     ("speech", "edge"),
-    ("llm", "chatanywhere"),
-    ("llm", "gemini"),
-    ("llm", "openai"),
-    ("llm", "claude")
+    ("llm", "chatanywhere")
 ])
 def test_provider_matrix(provider_type, provider_id):
     """Provider Matrix Test: ensure each provider implements identical lifecycle and abstract methods."""
@@ -176,12 +155,7 @@ def test_provider_matrix(provider_type, provider_id):
     dummy_settings = {
         "chatanywhere": {"api_key": "dummy", "base_url": "http://dummy"},
         "deepl": {"api_key": "dummy"},
-        "gemini": {"api_key": "dummy"},
-        "google": {"api_key": "dummy"},
-        "openai": {"api_key": "dummy"},
-        "kira": {"api_key": "dummy"},
-        "elevenlabs": {"api_key": "dummy"},
-        "claude": {"api_key": "dummy"}
+        "elevenlabs": {"api_key": "dummy"}
     }
     
     if provider_type == "translation":
@@ -223,14 +197,12 @@ def test_provider_matrix(provider_type, provider_id):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("provider_id", ["gemini", "kira", "elevenlabs", "omnivoice", "edge"])
+@pytest.mark.parametrize("provider_id", ["elevenlabs", "edge"])
 async def test_speech_preview_matrix(provider_id):
     """Verify that calling preview() with arbitrary keyword args does not raise TypeError on any speech provider."""
     from backend.providers.speech.manager import SpeechProviderManager
     
     dummy_settings = {
-        "gemini": {"api_key": "dummy"},
-        "kira": {"api_key": "dummy"},
         "elevenlabs": {"api_key": "dummy"}
     }
     
@@ -255,7 +227,6 @@ def test_no_legacy_workers_in_frontend():
     """Regression test asserting that no frontend python file references removed legacy worker classes."""
     import os
     removed_workers = [
-        "TestKiraConnectionWorker",
         "TestDeepLConnectionWorker",
         "TestConnectionWorker",
         "RefreshTranslationModelsWorker",
@@ -305,7 +276,7 @@ def test_pre_registration_lifecycle():
     import inspect
     
     manager = TranslationProviderManager()
-    for pid in ["chatanywhere", "deepl", "google", "gemini", "openai"]:
+    for pid in ["chatanywhere", "deepl"]:
         provider = manager.get(pid, create_lazy=False)
         assert provider is not None, f"Provider '{pid}' was not pre-registered on startup."
         assert not inspect.isabstract(provider.__class__), f"Provider class '{provider.__class__.__name__}' is abstract."
@@ -316,7 +287,7 @@ async def test_speech_facade_refresh_models():
     """Verify SpeechFacadeService.refresh_models works for speech providers without AttributeError."""
     from backend.services.speech_facade_service import SpeechFacadeService
     facade = SpeechFacadeService()
-    models = await facade.refresh_models("kira")
+    models = await facade.refresh_models("edge")
 def test_translation_widget_refresh_models_slot():
     """Verify that ChatAnywhereSettingsWidget populates all models received from worker slot."""
     from PySide6.QtWidgets import QApplication
@@ -327,14 +298,14 @@ def test_translation_widget_refresh_models_slot():
     mock_res = {
         "success": True,
         "status": "Success",
-        "models": ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo", "claude-3-5-sonnet"]
+        "models": ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
     }
     
     widget._on_refresh_models_finished(mock_res)
     
-    assert widget.model_combo.count() == 4
+    assert widget.model_combo.count() == 3
     all_items = [widget.model_combo.itemText(i) for i in range(widget.model_combo.count())]
-    assert all_items == ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo", "claude-3-5-sonnet"]
+    assert all_items == ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
 @pytest.mark.asyncio
 async def test_elevenlabs_list_voices(monkeypatch):
     """Regression test asserting that ElevenLabsProvider.list_voices returns list containing voice_id and name."""
@@ -675,7 +646,6 @@ def test_settings_persistence(tmp_path):
     from frontend.ui.settings_window import SettingsWindow
     
     sw = SettingsWindow()
-    sw.kira_api_key = "test_kira_key"
     sw._state.speech_provider = "elevenlabs"
     sw.save_settings()
     

@@ -22,15 +22,13 @@ class ProfileService:
             "translation_provider": "ChatAnywhere",
             "chatanywhere": {"model": "gpt-4o"},
             "speech_enhancement": "demucs",
-            "tts_provider": "Kira",
-            "kira": {"model": "kira-3.0-pro-tts"}
+            "tts_provider": "Edge TTS"
         },
         "Anime": {
             "translation_provider": "DeepL",
             "deepl": {"model": "default"},
             "speech_enhancement": "off",
-            "tts_provider": "Kira",
-            "kira": {"model": "kira-3.0-flash-tts"}
+            "tts_provider": "Edge TTS"
         },
         "Documentary": {
             "translation_provider": "ChatAnywhere",
@@ -39,10 +37,10 @@ class ProfileService:
             "tts_provider": "Edge TTS"
         },
         "Podcast": {
-            "translation_provider": "OpenAI",
+            "translation_provider": "ChatAnywhere",
+            "chatanywhere": {"model": "gpt-4o-mini"},
             "speech_enhancement": "demucs",
-            "tts_provider": "Kira",
-            "kira": {"model": "kira-3.0-pro-tts"}
+            "tts_provider": "Edge TTS"
         }
     }
 

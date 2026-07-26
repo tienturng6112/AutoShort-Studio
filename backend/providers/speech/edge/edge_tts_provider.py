@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from backend.providers.speech.base_speech_provider import BaseSpeechProvider
 
 try:
@@ -87,8 +87,12 @@ class EdgeTTSProvider(BaseSpeechProvider):
     async def preview(self, text: str, voice_name: str, **kwargs) -> bytes:
         if edge_tts is None:
             return b"MOCK AUDIO PREVIEW"
-            
-        communicate = edge_tts.Communicate(text, voice_name)
+        
+        rate = kwargs.get("rate")
+        pitch = kwargs.get("pitch")
+        volume = kwargs.get("volume")
+        
+        communicate = edge_tts.Communicate(text, voice_name, rate=rate, pitch=pitch, volume=volume)
         data = []
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":

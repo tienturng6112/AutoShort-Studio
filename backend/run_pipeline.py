@@ -749,13 +749,7 @@ async def main() -> None:
                             
                 tts_type = settings.get("speech_provider", "edge").lower()
                 config = get_provider_config(settings, tts_type)
-                if tts_type == "gemini":
-                    from backend.providers.speech.gemini.provider import GeminiSpeechProvider
-                    tts_provider = GeminiSpeechProvider(api_key=config.get("api_key"), cache_dir=os.path.join(project_dir, "cache", "speech"))
-                elif tts_type == "kira":
-                    from backend.providers.speech.elevenlabs.kira_provider import KiraProvider
-                    tts_provider = KiraProvider(api_key=config.get("api_key"), model=config.get("model", "kira-3.0-flash-tts"))
-                elif tts_type == "elevenlabs":
+                if tts_type == "elevenlabs":
                     from backend.providers.speech.elevenlabs.elevenlabs_provider import ElevenLabsProvider
                     tts_provider = ElevenLabsProvider(api_key=config.get("api_key"), model=config.get("model", "eleven_multilingual_v2"))
                 else:

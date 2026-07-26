@@ -152,13 +152,6 @@ class MainWindow(QMainWindow):
         nav_items = [
             ("home", loc.translate("nav_home")),
             ("projects", loc.translate("nav_projects")),
-            ("translation_review", loc.translate("nav_translation")),
-            ("voices", loc.translate("nav_voice")),
-            ("characters", loc.translate("nav_characters")),
-            ("emotions", loc.translate("nav_emotion")),
-            ("templates", loc.translate("nav_templates")),
-            ("qa", loc.translate("nav_qa")),
-            ("diagnostics", loc.translate("nav_diagnostics")),
             ("settings", loc.translate("nav_settings"))
         ]
 
@@ -187,7 +180,7 @@ class MainWindow(QMainWindow):
         rp_layout.addWidget(self.lbl_provider_status)
         
         # Mock Provider Cards for now
-        providers = ["ChatAnywhere", "Edge TTS", "ElevenLabs", "Kira AI", "OmniVoice"]
+        providers = ["ChatAnywhere", "Edge TTS", "ElevenLabs"]
         for p in providers:
             card = QFrame()
             card.setProperty("class", "Card")
@@ -383,11 +376,9 @@ class MainWindow(QMainWindow):
         self.btn_collapse.setText(loc.translate("nav_collapse") if self.nav_buttons["home"].text() != "" else ">")
         
         # Repopulate nav
-        nav_keys = ["home", "projects", "translation_review", "voices", "characters", "emotions", "templates", "qa", "diagnostics", "settings"]
+        nav_keys = ["home", "projects", "settings"]
         nav_translations = [
-            loc.translate("nav_home"), loc.translate("nav_projects"), loc.translate("nav_translation"),
-            loc.translate("nav_voice"), loc.translate("nav_characters"), loc.translate("nav_emotion"),
-            loc.translate("nav_templates"), loc.translate("nav_qa"), loc.translate("nav_diagnostics"),
+            loc.translate("nav_home"), loc.translate("nav_projects"),
             loc.translate("nav_settings")
         ]
         if self.nav_buttons["home"].text() != "":
@@ -691,7 +682,7 @@ if __name__ == '__main__':
         
         # 1. Validate Translation
         validation_manager = TranslationProviderManager()
-        providers_to_validate = ["chatanywhere", "deepl", "gemini", "google", "openai"]
+        providers_to_validate = ["chatanywhere", "deepl"]
         
         class MockLLMService:
             def __init__(self):
@@ -706,12 +697,7 @@ if __name__ == '__main__':
         dummy_settings = {
             "chatanywhere": {"api_key": "dummy", "base_url": "http://dummy"},
             "deepl": {"api_key": "dummy"},
-            "gemini": {"api_key": "dummy"},
-            "google": {"api_key": "dummy"},
-            "openai": {"api_key": "dummy"},
-            "kira": {"api_key": "dummy"},
-            "elevenlabs": {"api_key": "dummy"},
-            "claude": {"api_key": "dummy"}
+            "elevenlabs": {"api_key": "dummy"}
         }
         
         for pid in providers_to_validate:
@@ -727,7 +713,7 @@ if __name__ == '__main__':
 
         # 2. Validate Speech
         speech_manager = SpeechProviderManager()
-        speech_providers = ["gemini", "kira", "elevenlabs", "omnivoice", "edge"]
+        speech_providers = ["elevenlabs", "edge"]
         for pid in speech_providers:
             try:
                 p = speech_manager.create_provider(pid, dummy_settings)
@@ -741,7 +727,7 @@ if __name__ == '__main__':
 
         # 3. Validate LLM
         llm_manager = LLMProviderManager()
-        llm_providers = ["chatanywhere", "gemini", "openai", "claude"]
+        llm_providers = ["chatanywhere"]
         for pid in llm_providers:
             try:
                 p = llm_manager.create_provider(pid, dummy_settings)

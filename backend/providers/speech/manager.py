@@ -61,7 +61,7 @@ class SpeechProviderManager:
         This is the sole TTS factory. Replaces the deprecated TTSProviderFactory.
         
         Args:
-            provider_id: Provider identifier (gemini, kira, elevenlabs, omnivoice, edge).
+            provider_id: Provider identifier (elevenlabs, edge).
             settings: Application settings dict (typically loaded from settings.json).
             
         Returns:
@@ -69,35 +69,13 @@ class SpeechProviderManager:
         """
         provider_id = provider_id.lower()
 
-        if provider_id == "gemini":
-            from backend.providers.speech.gemini.provider import GeminiSpeechProvider
-            config = settings.get("providers", {}).get("gemini", settings.get("gemini", {}))
-            provider = GeminiSpeechProvider(
-                api_key=config.get("api_key", ""),
-                cache_dir=config.get("cache_dir")
-            )
-        elif provider_id == "kira":
-            from backend.providers.speech.elevenlabs.kira_provider import KiraProvider
-            config = settings.get("kira", settings.get("providers", {}).get("kira", {}))
-            try:
-                speed_val = float(config.get("speed", 1.0))
-            except (ValueError, TypeError):
-                speed_val = 1.0
-            provider = KiraProvider(
-                api_key=config.get("api_key", ""),
-                model=config.get("model", "kira-3.0-flash-tts"),
-                speed=speed_val
-            )
-        elif provider_id == "elevenlabs":
+        if provider_id == "elevenlabs":
             from backend.providers.speech.elevenlabs.elevenlabs_provider import ElevenLabsProvider
             config = settings.get("elevenlabs", settings.get("providers", {}).get("elevenlabs", {}))
             provider = ElevenLabsProvider(
                 api_key=config.get("api_key", ""),
                 model=config.get("model", "eleven_multilingual_v2")
             )
-        elif provider_id == "omnivoice":
-            from backend.providers.tts.omnivoice_provider import OmniVoiceProvider
-            provider = OmniVoiceProvider()
         else:
             # Default: Edge TTS (no API key required)
             from backend.providers.speech.edge.edge_tts_provider import EdgeTTSProvider
@@ -109,4 +87,3 @@ class SpeechProviderManager:
 
         self.register(provider_id, provider)
         return provider
-

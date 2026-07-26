@@ -44,9 +44,6 @@ async def seed_data():
             logger.info("Seeding default providers...")
             default_providers = [
                 Provider(name="chatanywhere", base_url="https://api.chatanywhere.tech/v1", is_active=True),
-                Provider(name="openai", base_url="https://api.openai.com/v1", is_active=False),
-                Provider(name="gemini", base_url="https://generativelanguage.googleapis.com", is_active=False),
-                Provider(name="claude", base_url="https://api.anthropic.com", is_active=False),
                 Provider(name="groq", base_url="https://api.groq.com/openai/v1", is_active=False),
                 Provider(name="openrouter", base_url="https://openrouter.ai/api/v1", is_active=False),
                 Provider(name="ollama", base_url="http://localhost:11434/v1", is_active=False),

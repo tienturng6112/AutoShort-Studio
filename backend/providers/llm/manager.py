@@ -52,7 +52,7 @@ class LLMProviderManager:
         """Factory: creates, registers, and returns an LLM provider instance.
         
         Args:
-            provider_id: Provider identifier (chatanywhere, gemini, openai, claude).
+            provider_id: Provider identifier (chatanywhere).
             settings: Application settings dict (typically loaded from settings.json).
             
         Returns:
@@ -67,30 +67,6 @@ class LLMProviderManager:
                 name="chatanywhere",
                 api_key=config.get("api_key", ""),
                 base_url=config.get("base_url")
-            )
-        elif provider_id == "gemini":
-            from backend.providers.llm.gemini.gemini_provider import GeminiLLMProvider
-            config = settings.get("gemini", settings.get("providers", {}).get("gemini", {}))
-            provider = GeminiLLMProvider(
-                name="gemini",
-                api_key=config.get("api_key", ""),
-                model=config.get("model", "gemini-1.5-flash")
-            )
-        elif provider_id == "openai":
-            from backend.providers.llm.openai.openai_provider import OpenAILLMProvider
-            config = settings.get("openai", settings.get("providers", {}).get("openai", {}))
-            provider = OpenAILLMProvider(
-                name="openai",
-                api_key=config.get("api_key", ""),
-                model=config.get("model", "gpt-4o-mini")
-            )
-        elif provider_id == "claude":
-            from backend.providers.llm.claude.claude_provider import ClaudeLLMProvider
-            config = settings.get("claude", settings.get("providers", {}).get("claude", {}))
-            provider = ClaudeLLMProvider(
-                name="claude",
-                api_key=config.get("api_key", ""),
-                model=config.get("model", "claude-3-haiku-20240307")
             )
         else:
             raise ValueError(f"Unknown LLM provider: {provider_id}")

@@ -86,23 +86,14 @@ def audit_settings_window(window) -> dict:
         saved_speech = saved_data.get("speech_provider", saved_data.get("tts_provider", "edge")).lower()
         if "edge" in saved_speech:
             saved_speech = "edge"
-        elif "gemini" in saved_speech:
-            saved_speech = "gemini"
         elif "elevenlabs" in saved_speech:
             saved_speech = "elevenlabs"
-        elif "kira" in saved_speech:
-            saved_speech = "kira"
-        elif "omnivoice" in saved_speech:
-            saved_speech = "omnivoice"
             
         state_speech = window._state.speech_provider.lower()
         
         combo_text = window.tts_provider_combo.currentText()
         combo_mapping = {
-            "Gemini Speech": "gemini",
             "ElevenLabs": "elevenlabs",
-            "Kira": "kira",
-            "OmniVoice (Experimental)": "omnivoice",
             "Edge TTS": "edge"
         }
         combo_speech = combo_mapping.get(combo_text, "edge").lower()

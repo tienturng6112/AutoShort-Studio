@@ -1,22 +1,24 @@
 import time
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 from openai import OpenAI
 from backend.providers.llm.base_llm_provider import BaseLLMProvider
 from backend.core.exceptions import AIProviderException
 
-class ChatAnywhereProvider(BaseLLMProvider):
-    """Production provider adapter wrapping the ChatAnywhere API endpoints using OpenAI Python SDK."""
+class LLMAPIProvider(BaseLLMProvider):
+    """Provider adapter for any endpoint compatible with the OpenAI API."""
 
     def __init__(self, name: str, api_key: Optional[str] = None, base_url: Optional[str] = None) -> None:
         super().__init__(name, api_key, base_url)
-        self._effective_url: str = base_url or "https://api.chatanywhere.tech/v1"
+        self._effective_url: str = base_url or ""
         self._client: Optional[OpenAI] = None
 
     def _get_client(self) -> OpenAI:
         """Resolves and returns the OpenAI client instance."""
         if self._client is None:
             if not self.api_key:
-                raise AIProviderException("ChatAnywhere connection error: API Key must be set.")
+                raise AIProviderException("LLM API connection error: API Key must be set.")
+            if not self._effective_url:
+                raise AIProviderException("LLM API connection error: Base URL must be set.")
             self._client = OpenAI(
                 api_key=self.api_key,
                 base_url=self._effective_url
@@ -78,14 +80,10 @@ class ChatAnywhereProvider(BaseLLMProvider):
             status_code = 200
         except Exception as e:
             import logging
-            logging.getLogger(__name__).warning(f"Failed to query ChatAnywhere models: {e}")
-            
-        if not models:
-            models = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
-            parsed_count = len(models)
-            
-        print(f"\n[RAW CHATANYWHERE MODEL LISTING AUDIT]")
-        print(f"  Provider:             ChatAnywhere (LLM)")
+            logging.getLogger(__name__).warning(f"Failed to query LLM API models: {e}")
+
+        print(f"\n[LLM API MODEL LISTING AUDIT]")
+        print(f"  Provider:             OpenAI-compatible LLM API")
         print(f"  Endpoint:             {url}")
         print(f"  Status Code:          {status_code}")
         print(f"  Raw API count:        {raw_count}")
@@ -119,7 +117,7 @@ class ChatAnywhereProvider(BaseLLMProvider):
             )
             return response.choices[0].message.content or ""
         except Exception as e:
-            raise AIProviderException(f"ChatAnywhere chat execution failed: {str(e)}")
+            raise AIProviderException(f"LLM API chat execution failed: {str(e)}")
 
     async def stream_chat(
         self, 

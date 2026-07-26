@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 logger = logging.getLogger("ModelManager")
 
 class ModelManager:
-    """Manages local AI models (OmniVoice, etc.) including downloading, verification, and deletion."""
+    """Manages local AI models including downloading, verification, and deletion."""
     
     def __init__(self, models_dir: str = "models"):
         self.models_dir = os.path.abspath(models_dir)
@@ -37,7 +37,7 @@ class ModelManager:
         return installed
 
     def switch_model(self, engine: str, model_id: str):
-        """Switches the active model for a specific engine (e.g. omnivoice)."""
+        """Switches the active model for a specific engine."""
         self.active_models[engine] = model_id
         logger.info(f"Switched {engine} to model {model_id}")
         
@@ -47,7 +47,7 @@ class ModelManager:
     async def download_model(self, model_id: str, download_url: str) -> bool:
         """Mock download for a local model."""
         logger.info(f"Downloading model {model_id} from {download_url}...")
-        model_path = os.path.join(self.models_dir, "omnivoice", model_id)
+        model_path = os.path.join(self.models_dir, model_id)
         os.makedirs(model_path, exist_ok=True)
         
         # Simulate network download delay
@@ -56,10 +56,10 @@ class ModelManager:
         # Write dummy model metadata
         meta = {
             "id": model_id,
-            "name": f"OmniVoice {model_id.capitalize()}",
+            "name": model_id.capitalize(),
             "version": "1.0.0",
             "checksum": "sha256-dummy",
-            "engine": "omnivoice"
+            "engine": "local"
         }
         with open(os.path.join(model_path, "model.json"), "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=4)

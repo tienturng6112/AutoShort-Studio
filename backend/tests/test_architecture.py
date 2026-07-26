@@ -82,22 +82,4 @@ def test_abstract_node_instantiation_fails():
         # BaseNode has abstract methods: validate_inputs, execute, rollback
         BaseNode(name="mock")
 
-def test_provider_schemas_instantiation():
-    from backend.providers.config import ProviderConfig
-    from backend.providers.capabilities import ProviderCapabilities
-    from backend.providers.metadata import ProviderMetadata
-
-    config = ProviderConfig(api_key="secret", base_url="http://localhost")
-    assert config.api_key == "secret"
-    assert config.base_url == "http://localhost"
-    assert config.timeout == 30
-
-    caps = ProviderCapabilities(supports_chat=True, supports_stream=True)
-    assert caps.supports_chat is True
-    assert caps.supports_stream is True
-    assert caps.supports_json is False
-
-    meta = ProviderMetadata(provider_id="openai", display_name="OpenAI Platform", capabilities=caps)
-    assert meta.provider_id == "openai"
-    assert meta.capabilities.supports_chat is True
 

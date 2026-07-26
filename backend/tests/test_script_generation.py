@@ -66,7 +66,7 @@ async def test_llm_service_and_script_generator() -> None:
     generator = ScriptGenerationService(
         llm_service=llm_service, 
         prompt_template_path="backend/prompts/script_generation.yaml",
-        llm_provider_id="openai"
+        llm_provider_id="chatanywhere"
     )
     
     script = await generator.generate_script(topic="Quantum Mechanics")

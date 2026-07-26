@@ -75,41 +75,6 @@ class WorkspaceManager(QObject):
         if page_key == 'settings':
             from frontend.ui.settings_window import SettingsWindow
             page_class = SettingsWindow
-        elif page_key == 'characters':
-            from frontend.ui.character_browser_window import CharacterBrowserWindow
-            from backend.character.character_manager import CharacterManager
-            kwargs['char_mgr'] = CharacterManager(storage_path='characters.json')
-            page_class = CharacterBrowserWindow
-        elif page_key == 'voices':
-            from frontend.ui.voice_browser_window import VoiceBrowserWindow
-            from backend.voice.voice_manager import VoiceManager
-            kwargs['voice_manager'] = VoiceManager(cache_path=os.path.join("config", "voices.json"))
-            page_class = VoiceBrowserWindow
-        elif page_key == 'emotions':
-            from frontend.ui.emotion_editor_window import EmotionEditorWindow
-            kwargs['project_dir'] = project_dir
-            page_class = EmotionEditorWindow
-        elif page_key == 'qa':
-            from frontend.ui.qa_dashboard_window import QADashboardWindow
-            kwargs['project_dir'] = project_dir
-            page_class = QADashboardWindow
-        elif page_key == 'templates':
-            from frontend.ui.template_browser_window import TemplateBrowserWindow
-            from backend.template.template_manager import TemplateManager
-            kwargs['template_manager'] = TemplateManager(storage_dir='templates')
-            page_class = TemplateBrowserWindow
-        elif page_key == 'diagnostics':
-            from frontend.ui.provider_diagnostics_window import ProviderDiagnosticsWindow
-            from backend.services.diagnostics_service import DiagnosticsService
-            kwargs['diagnostics_data'] = DiagnosticsService.get_diagnostics()
-            page_class = ProviderDiagnosticsWindow
-        elif page_key == 'models':
-            from frontend.ui.ai_models_window import AIModelsWindow
-            page_class = AIModelsWindow
-        elif page_key == 'translation_review':
-            from frontend.ui.translation_review_window import TranslationReviewWindow
-            kwargs['project_id'] = os.path.basename(project_dir) if project_dir else ''
-            page_class = TranslationReviewWindow
 
         if not page_class:
             logger.error(f'Unknown page key for show_window: {page_key}')

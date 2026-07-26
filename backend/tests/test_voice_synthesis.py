@@ -218,84 +218,6 @@ async def test_voice_service_pipeline(
 
 
 @pytest.mark.asyncio
-@patch("backend.tts.kira_provider.httpx.AsyncClient")
-async def test_kira_provider_and_factory(mock_async_client: MagicMock) -> None:
-    # Setup HTTP response mock
-    mock_client = MagicMock()
-    mock_async_client.return_value.__aenter__.return_value = mock_client
-    
-    # 1. Mock list_voices response
-    mock_list_resp = MagicMock()
-    mock_list_resp.status_code = 200
-    mock_list_resp.json.return_value = [
-        {"id": "aoede", "name": "Aoede (Nova - Female)", "gender": "Female", "language": "vi"}
-    ]
-    
-    # 2. Mock generate POST response (returns raw audio bytes)
-    mock_post_resp = MagicMock()
-    mock_post_resp.status_code = 200
-    mock_post_resp.content = b"kira mp3 bytes output"
-    
-    # Set side effects for request calls
-    async def fake_get(url, *args, **kwargs):
-        if "/voices" in url:
-            return mock_list_resp
-        return MagicMock(status_code=404)
-        
-    async def fake_post(url, *args, **kwargs):
-        if "/speech" in url:
-            return mock_post_resp
-        return MagicMock(status_code=404)
-        
-    mock_client.get = fake_get
-    mock_client.post = fake_post
-    
-    # Instantiate via TTSProviderFactory
-    settings = {
-        "tts_provider": "Kira",
-        "kira": {
-            "api_key": "test-key-123",
-            "model": "kira-3.0-flash-tts",
-            "speed": "1.1"
-        }
-    }
-    from backend.tts.tts_provider import TTSProviderFactory
-    provider = TTSProviderFactory.create("Kira", settings)
-    
-    assert provider._api_key == "test-key-123"
-    assert provider._model == "kira-3.0-flash-tts"
-    assert provider._speed == 1.1
-    
-    # Test list_voices
-    voices = await provider.list_voices()
-    assert len(voices) == 1
-    assert voices[0]["name"] == "aoede"
-    assert voices[0]["display_name"] == "Aoede (Nova - Female)"
-    
-    # Test generate
-    with tempfile.TemporaryDirectory() as tmp_root:
-        out_path = os.path.join(tmp_root, "speech.mp3")
-        path, word_bounds = await provider.generate("Xin chao", "aoede", out_path)
-        assert path == out_path
-        assert os.path.exists(out_path)
-        import wave
-        with wave.open(out_path, "rb") as w:
-            assert w.getnchannels() == 1
-            assert w.getsampwidth() == 2
-            assert w.getframerate() == 24000
-            assert w.readframes(w.getnframes()) == b"kira mp3 bytes outpu"
-            
-    # Test preview
-    preview_bytes = await provider.preview("Xin chao", "aoede")
-    import io
-    with wave.open(io.BytesIO(preview_bytes), "rb") as w:
-        assert w.getnchannels() == 1
-        assert w.getsampwidth() == 2
-        assert w.getframerate() == 24000
-        assert w.readframes(w.getnframes()) == b"kira mp3 bytes outpu"
-
-
-@pytest.mark.asyncio
 async def test_edge_tts_provider_voice_validation() -> None:
     provider = EdgeTTSProvider()
     # Should pass
@@ -306,30 +228,6 @@ async def test_edge_tts_provider_voice_validation() -> None:
     
     # Should fail if Vietnamese and not in list
     with pytest.raises(ValueError, match="Selected voice error: Expected vi-VN-HoaiMyNeural"):
-        await provider.validate_voice("invalid-voice", "vi")
-
-
-@pytest.mark.asyncio
-@patch("backend.tts.kira_provider.httpx.AsyncClient")
-async def test_kira_provider_voice_validation(mock_async_client: MagicMock) -> None:
-    # Setup HTTP response mock for list_voices
-    mock_client = MagicMock()
-    mock_async_client.return_value.__aenter__.return_value = mock_client
-    
-    mock_list_resp = MagicMock()
-    mock_list_resp.status_code = 200
-    mock_list_resp.json.return_value = [
-        {"id": "alloy", "name": "Alloy", "gender": "Female", "language": "vi"}
-    ]
-    mock_client.get = AsyncMock(return_value=mock_list_resp)
-    
-    from backend.tts.kira_provider import KiraProvider
-    provider = KiraProvider(api_key="test-key")
-    # Should pass because it is in list_voices
-    await provider.validate_voice("alloy", "vi")
-    
-    # Should fail if not in list_voices
-    with pytest.raises(ValueError, match="Voice 'invalid-voice' is not supported"):
         await provider.validate_voice("invalid-voice", "vi")
 
 

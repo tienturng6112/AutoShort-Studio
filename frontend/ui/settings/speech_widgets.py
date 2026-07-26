@@ -10,223 +10,6 @@ from backend.services.localization_service import LocalizationService
 loc = LocalizationService()
 logger = logging.getLogger(__name__)
 
-class GeminiSpeechSettingsWidget(QWidget):
-    test_requested = Signal()
-    refresh_models_requested = Signal()
-    refresh_voices_requested = Signal()
-    preview_requested = Signal(str, str, str, str, float, float) # text, model, voice, lang, speed, pitch
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.init_ui()
-        
-    def init_ui(self):
-        layout = QVBoxLayout(self)
-        
-        group = QGroupBox(loc.translate("gemini_speech_config", "Gemini Speech Configuration"))
-        form = QFormLayout()
-        
-        self.use_custom_key_chk = QCheckBox("Use custom API Key")
-        self.use_custom_key_chk.toggled.connect(self._on_custom_key_toggled)
-        self.api_key_edit = QLineEdit()
-        self.api_key_edit.setEchoMode(QLineEdit.Password)
-        self.api_key_edit.setVisible(False)
-        self.capabilities_map = {}
-        self.api_key_edit.setPlaceholderText("AIza...")
-        
-        # Model
-        model_layout = QHBoxLayout()
-        self.model_combo = QComboBox()
-        self.model_combo.setEditable(True)
-        self.model_combo.currentTextChanged.connect(self._on_model_changed)
-        self.refresh_model_btn = QPushButton(loc.translate("btn_refresh_models", "Refresh Models"))
-        self.refresh_model_btn.clicked.connect(self.refresh_models)
-        model_layout.addWidget(self.model_combo, 1)
-        model_layout.addWidget(self.refresh_model_btn)
-        self.capabilities_label = QLabel()
-        self.capabilities_label.setStyleSheet("color: gray; font-size: 11px;")
-        
-        # Voice
-        voice_layout = QHBoxLayout()
-        self.voice_combo = QComboBox()
-        self.refresh_voice_btn = QPushButton(loc.translate("btn_refresh_voices", "Refresh Voices"))
-        self.refresh_voice_btn.clicked.connect(self.refresh_voices)
-        voice_layout.addWidget(self.voice_combo, 1)
-        voice_layout.addWidget(self.refresh_voice_btn)
-        
-        self.lang_edit = QComboBox()
-        self.lang_edit.setEditable(True)
-        languages = [
-            "Auto Detect", "Vietnamese (vi-VN)", "English (en-US)", 
-            "Japanese (ja-JP)", "Korean (ko-KR)", "Chinese Simplified (zh-CN)", 
-            "Chinese Traditional (zh-TW)", "French (fr-FR)", "German (de-DE)", 
-            "Spanish (es-ES)", "Portuguese (pt-BR)", "Russian (ru-RU)", 
-            "Thai (th-TH)", "Indonesian (id-ID)"
-        ]
-        self.lang_edit.addItems(languages)
-        self.lang_edit.setCurrentText("English (en-US)")
-        self.style_edit = QLineEdit("")
-        self.style_edit.setPlaceholderText("e.g. happy, sad (Optional)")
-        
-        # Speed & Pitch
-        self.speed_slider = QSlider(Qt.Horizontal)
-        self.speed_slider.setRange(25, 400) # 0.25 to 4.0
-        self.speed_slider.setValue(100)
-        self.speed_val = QLabel("1.0")
-        self.speed_slider.valueChanged.connect(lambda v: self.speed_val.setText(f"{v/100:.2f}"))
-        speed_layout = QHBoxLayout()
-        speed_layout.addWidget(self.speed_slider)
-        speed_layout.addWidget(self.speed_val)
-        
-        self.pitch_slider = QSlider(Qt.Horizontal)
-        self.pitch_slider.setRange(-20, 20)
-        self.pitch_slider.setValue(0)
-        self.pitch_val = QLabel("0")
-        self.pitch_slider.valueChanged.connect(lambda v: self.pitch_val.setText(str(v)))
-        pitch_layout = QHBoxLayout()
-        pitch_layout.addWidget(self.pitch_slider)
-        pitch_layout.addWidget(self.pitch_val)
-        
-        # Preview
-        self.preview_text = QLineEdit(loc.translate("preview_text_default", "Hello, this is a test of Gemini Speech."))
-        preview_layout = QHBoxLayout()
-        preview_layout.addWidget(self.preview_text, 1)
-        self.preview_btn = QPushButton(loc.translate("btn_generate_test_audio", "Generate Test Audio"))
-        self.preview_btn.clicked.connect(self.play_preview)
-        preview_layout.addWidget(self.preview_btn)
-        
-        # Test Connection
-        self.test_btn = QPushButton(loc.translate("btn_test_connection", "Test Connection"))
-        self.test_btn.clicked.connect(self.test_connection)
-        self.status_lbl = QLabel(loc.translate("status_idle", "Idle"))
-        test_layout = QHBoxLayout()
-        test_layout.addWidget(self.test_btn)
-        test_layout.addWidget(self.status_lbl)
-        
-        api_layout = QVBoxLayout()
-        api_layout.addWidget(self.use_custom_key_chk)
-        api_layout.addWidget(self.api_key_edit)
-        form.addRow(loc.translate("lbl_api_key", "API Key:"), api_layout)
-        form.addRow(loc.translate("lbl_model", "Model:"), model_layout)
-        form.addRow("", self.capabilities_label)
-        form.addRow(loc.translate("lbl_voice", "Voice:"), voice_layout)
-        form.addRow(loc.translate("lbl_language", "Language:"), self.lang_edit)
-        form.addRow(loc.translate("lbl_speaking_style", "Speaking Style:"), self.style_edit)
-        form.addRow(loc.translate("lbl_speed", "Speed:"), speed_layout)
-        form.addRow(loc.translate("lbl_pitch", "Pitch:"), pitch_layout)
-        form.addRow(loc.translate("lbl_preview_text", "Preview Text:"), preview_layout)
-        form.addRow("", test_layout)
-        
-        group.setLayout(form)
-        layout.addWidget(group)
-        layout.addStretch()
-        
-        self.player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.player.setAudioOutput(self.audio_output)
-        
-    def _on_custom_key_toggled(self, checked):
-        self.api_key_edit.setVisible(checked)
-
-    def test_connection(self):
-        self.status_lbl.setText("Testing...")
-        self.test_btn.setEnabled(False)
-        self.test_requested.emit()
-        
-    def _on_model_changed(self, text):
-        caps = self.capabilities_map.get(text, [])
-        if caps:
-            self.capabilities_label.setText(" ".join(f"✓ {c}" for c in caps))
-        else:
-            self.capabilities_label.setText("")
-
-    def _on_test_finished(self, res):
-        self.test_btn.setEnabled(True)
-        if res.get("success"):
-            models = res.get('models', []); self.capabilities_map.update(res.get('capabilities', {}))
-            self.status_lbl.setText(f"✓ Connected. {len(models)} models.")
-            self.status_lbl.setStyleSheet("color: green;")
-            if not self.model_combo.currentText() and models:
-                self.model_combo.addItems(models)
-        else:
-            self.status_lbl.setText(f"Failed: {res.get('message')}")
-            self.status_lbl.setStyleSheet("color: red;")
-            
-    def refresh_models(self):
-        self.refresh_model_btn.setEnabled(False)
-        self.refresh_models_requested.emit()
-        
-    def _on_refresh_models_finished(self, res):
-        self.refresh_model_btn.setEnabled(True)
-        if res.get("success"):
-            models = res.get("models", []); self.capabilities_map.update(res.get('capabilities', {}))
-            curr = self.model_combo.currentText()
-            self.model_combo.clear()
-            self.model_combo.addItems(models)
-            if curr in models:
-                self.model_combo.setCurrentText(curr)
-                
-    def refresh_voices(self):
-        self.refresh_voices_requested.emit()
-            
-    def play_preview(self):
-        self.preview_btn.setEnabled(False)
-        self.preview_btn.setText("Generating...")
-        self.preview_requested.emit(
-            self.preview_text.text(),
-            self.model_combo.currentText(),
-            self.voice_combo.currentText(),
-            self.lang_edit.currentText(),
-            self.speed_slider.value() / 100.0,
-            float(self.pitch_slider.value())
-        )
-        
-    def _on_preview_finished(self, audio_bytes):
-        self.preview_btn.setEnabled(True)
-        self.preview_btn.setText(loc.translate("btn_generate_test_audio", "Generate Test Audio"))
-        
-        import tempfile
-        import os
-        from PySide6.QtCore import QUrl
-        fd, path = tempfile.mkstemp(suffix=".wav")
-        os.write(fd, audio_bytes)
-        os.close(fd)
-        
-        self.player.setSource(QUrl.fromLocalFile(path))
-        self.player.play()
-        
-    def _on_preview_error(self, err):
-        self.preview_btn.setEnabled(True)
-        self.preview_btn.setText(loc.translate("btn_generate_test_audio", "Generate Test Audio"))
-        QMessageBox.warning(self, "Preview Failed", err)
-
-    def load_config(self, conf):
-        use_custom = conf.get("use_custom_key", False)
-        self.use_custom_key_chk.setChecked(use_custom)
-        self.api_key_edit.setVisible(use_custom)
-        self.api_key_edit.setText(conf.get("api_key", ""))
-        self.model_combo.setCurrentText(conf.get("model", "gemini-1.5-flash"))
-        self.voice_combo.setCurrentText(conf.get("voice", "Puck"))
-        self.lang_edit.setCurrentText(conf.get("language", "English (en-US)"))
-        self.style_edit.setText(conf.get("style", ""))
-        
-        speed = conf.get("speed", 1.0)
-        self.speed_slider.setValue(int(speed * 100))
-        
-        pitch = conf.get("pitch", 0)
-        self.pitch_slider.setValue(int(pitch))
-
-    def save_config(self):
-        return {
-            "use_custom_key": self.use_custom_key_chk.isChecked(),
-            "api_key": self.api_key_edit.text() if self.use_custom_key_chk.isChecked() else "",
-            "model": self.model_combo.currentText(),
-            "voice": self.voice_combo.currentText(),
-            "language": self.lang_edit.currentText(),
-            "style": self.style_edit.text(),
-            "speed": self.speed_slider.value() / 100.0,
-            "pitch": self.pitch_slider.value()
-        }
-
 
 class ElevenLabsSettingsWidget(QWidget):
     test_requested = Signal()
@@ -628,183 +411,241 @@ class ElevenLabsSettingsWidget(QWidget):
         }
 
 
-class KiraSettingsWidget(QWidget):
-    test_requested = Signal()
-    refresh_voices_requested = Signal()
-    preview_requested = Signal(str, str, str, str, float, float)
+class EdgeTTSSettingsWidget(QWidget):
+    """Dedicated settings widget for Edge TTS.
+    
+    Edge TTS does NOT use an API key. It uses Microsoft's public TTS interface.
+    Only shows: Voice List, Rate, Pitch, Volume, Test Audio.
+    Does NOT show: API Key, Base URL, Test Connection, Refresh Voices.
+    """
+    
+    test_audio_requested = Signal()
+    voice_changed = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, loc, parent=None):
         super().__init__(parent)
-        self._all_voices = []
-        self.init_ui()
-
-    def init_ui(self):
+        self.loc = loc
+        self._all_voices: list[dict] = []
+        self.player = None
+        self.audio_output = None
+        
+        self._init_ui()
+        self._populate_default_voices()
+        
+    def _init_ui(self):
         layout = QVBoxLayout(self)
-
-        group = QGroupBox("Kira Speech Configuration")
-        form = QFormLayout()
-
-        # API Key
-        self.api_key_edit = QLineEdit()
-        self.api_key_edit.setEchoMode(QLineEdit.Password)
-        self.api_key_edit.setPlaceholderText("Kira API Key")
-
-        # Base URL
-        self.base_url_edit = QLineEdit()
-        self.base_url_edit.setPlaceholderText("https://kiraai.vn/api/v1")
-
-        # Model
-        model_layout = QHBoxLayout()
-        self.model_combo = QComboBox()
-        self.model_combo.setEditable(True)
-        self.model_combo.addItems(["kira-3.0-flash-tts", "kira-3.0-pro-tts"])
-        model_layout.addWidget(self.model_combo, 1)
-
-        # Speed
-        self.speed_edit = QLineEdit("1.0")
-
-        # Voice
-        voice_layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # -- Voice selection --
+        voice_group = QGroupBox("Voice")
+        voice_form = QFormLayout(voice_group)
+        
         self.voice_combo = QComboBox()
-        self.refresh_voice_btn = QPushButton("Refresh Voices")
-        self.refresh_voice_btn.clicked.connect(self.refresh_voices)
-        voice_layout.addWidget(self.voice_combo, 1)
-        voice_layout.addWidget(self.refresh_voice_btn)
-
-        # Preview
-        self.preview_text = QLineEdit("Xin chào, đây là giọng nói từ Kira TTS.")
-        preview_layout = QHBoxLayout()
-        preview_layout.addWidget(self.preview_text, 1)
-        self.preview_btn = QPushButton("Generate Test Audio")
-        self.preview_btn.clicked.connect(self.play_preview)
-        preview_layout.addWidget(self.preview_btn)
-
-        # Test Connection
-        self.test_btn = QPushButton("Test Connection")
-        self.test_btn.clicked.connect(self.test_connection)
-        self.status_lbl = QLabel("Idle")
-        test_layout = QHBoxLayout()
-        test_layout.addWidget(self.test_btn)
-        test_layout.addWidget(self.status_lbl)
-
-        form.addRow("API Key:", self.api_key_edit)
-        form.addRow("Base URL:", self.base_url_edit)
-        form.addRow("Model:", model_layout)
-        form.addRow("Speed:", self.speed_edit)
-        form.addRow("Voice:", voice_layout)
-        form.addRow("Preview Text:", preview_layout)
-        form.addRow("", test_layout)
-
-        group.setLayout(form)
-        layout.addWidget(group)
+        self.voice_combo.setSizeAdjustPolicy(QComboBox.AdjustToContentsOnFirstShow)
+        self.voice_combo.currentIndexChanged.connect(self._on_voice_changed)
+        voice_form.addRow(self.loc.translate("voice"), self.voice_combo)
+        
+        layout.addWidget(voice_group)
+        
+        # -- Parameters group: Rate, Pitch, Volume --
+        params_group = QGroupBox("Parameters")
+        params_form = QFormLayout(params_group)
+        
+        # Rate slider (-50% to +50%, default 0)
+        rate_layout = QHBoxLayout()
+        self.rate_slider = QSlider(Qt.Horizontal)
+        self.rate_slider.setRange(-50, 50)
+        self.rate_slider.setValue(0)
+        self.rate_slider.setTickPosition(QSlider.TicksBelow)
+        self.rate_slider.setTickInterval(10)
+        self.rate_label = QLabel("0%")
+        self.rate_slider.valueChanged.connect(lambda v: self.rate_label.setText(f"{v:+d}%"))
+        rate_layout.addWidget(self.rate_slider, stretch=1)
+        rate_layout.addWidget(self.rate_label)
+        params_form.addRow("Rate", rate_layout)
+        
+        # Pitch slider (-50Hz to +50Hz, default 0)
+        pitch_layout = QHBoxLayout()
+        self.pitch_slider = QSlider(Qt.Horizontal)
+        self.pitch_slider.setRange(-50, 50)
+        self.pitch_slider.setValue(0)
+        self.pitch_slider.setTickPosition(QSlider.TicksBelow)
+        self.pitch_slider.setTickInterval(10)
+        self.pitch_label = QLabel("0Hz")
+        self.pitch_slider.valueChanged.connect(lambda v: self.pitch_label.setText(f"{v:+d}Hz"))
+        pitch_layout.addWidget(self.pitch_slider, stretch=1)
+        pitch_layout.addWidget(self.pitch_label)
+        params_form.addRow("Pitch", pitch_layout)
+        
+        # Volume slider (0 to 100, default 100)
+        volume_layout = QHBoxLayout()
+        self.volume_slider = QSlider(Qt.Horizontal)
+        self.volume_slider.setRange(0, 100)
+        self.volume_slider.setValue(100)
+        self.volume_slider.setTickPosition(QSlider.TicksBelow)
+        self.volume_slider.setTickInterval(10)
+        self.volume_label = QLabel("100%")
+        self.volume_slider.valueChanged.connect(lambda v: self.volume_label.setText(f"{v}%"))
+        volume_layout.addWidget(self.volume_slider, stretch=1)
+        volume_layout.addWidget(self.volume_label)
+        params_form.addRow("Volume", volume_layout)
+        
+        layout.addWidget(params_group)
+        
+        # -- Test Audio button --
+        self.test_audio_btn = QPushButton("▶ Test Audio")
+        self.test_audio_btn.clicked.connect(self._on_test_audio)
+        layout.addWidget(self.test_audio_btn)
+        
+        # -- Status label for test result --
+        self.status_label = QLabel("")
+        layout.addWidget(self.status_label)
+        
         layout.addStretch()
-
-        self.player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.player.setAudioOutput(self.audio_output)
-
-    def test_connection(self):
-        self.test_btn.setEnabled(False)
-        self.status_lbl.setText("Testing...")
-        self.test_requested.emit()
-
-    def _on_test_finished(self, res):
-        self.test_btn.setEnabled(True)
-        if res.get("success"):
-            models = res.get('models', [])
-            self.status_lbl.setText("✓ Connected.")
-            self.status_lbl.setStyleSheet("color: green;")
-            if models:
-                curr = self.model_combo.currentText()
-                self.model_combo.clear()
-                self.model_combo.addItems(models)
-                if curr in models:
-                    self.model_combo.setCurrentText(curr)
-        else:
-            self.status_lbl.setText(f"Failed: {res.get('message')}")
-            self.status_lbl.setStyleSheet("color: red;")
-
-    def refresh_voices(self):
-        self.refresh_voice_btn.setEnabled(False)
-        self.refresh_voices_requested.emit()
-
-    def _on_refresh_voices_finished(self, voices):
-        self.refresh_voice_btn.setEnabled(True)
+        
+    def _populate_default_voices(self):
+        """Load voices from the Edge TTS provider or fallback list."""
         self._all_voices = [
-            v if isinstance(v, dict) else {
-                "voice_id": getattr(v, "voice_id", ""),
-                "name": getattr(v, "name", getattr(v, "display_name", "")),
-                "display_name": getattr(v, "display_name", getattr(v, "name", "")),
-                "language": getattr(v, "language", "vi"),
-                "gender": getattr(v, "gender", "Neutral"),
-                "category": getattr(v, "category", None),
-                "description": getattr(v, "description", None),
-                "labels": getattr(v, "labels", None),
-                "preview_url": getattr(v, "preview_url", None)
-            } for v in voices
+            {"voice_id": "en-US-GuyNeural", "display_name": "Guy", "gender": "Male", "language": "en", "locale": "en-US"},
+            {"voice_id": "en-US-JennyNeural", "display_name": "Jenny", "gender": "Female", "language": "en", "locale": "en-US"},
+            {"voice_id": "en-GB-RyanNeural", "display_name": "Ryan", "gender": "Male", "language": "en", "locale": "en-GB"},
+            {"voice_id": "en-GB-SoniaNeural", "display_name": "Sonia", "gender": "Female", "language": "en", "locale": "en-GB"},
+            {"voice_id": "ja-JP-KeitaNeural", "display_name": "Keita", "gender": "Male", "language": "ja", "locale": "ja-JP"},
+            {"voice_id": "ja-JP-NanamiNeural", "display_name": "Nanami", "gender": "Female", "language": "ja", "locale": "ja-JP"},
+            {"voice_id": "vi-VN-NamMinhNeural", "display_name": "Nam Minh", "gender": "Male", "language": "vi", "locale": "vi-VN"},
+            {"voice_id": "vi-VN-HoaiMyNeural", "display_name": "Hoai My", "gender": "Female", "language": "vi", "locale": "vi-VN"},
+            {"voice_id": "ko-KR-SunHiNeural", "display_name": "SunHi", "gender": "Female", "language": "ko", "locale": "ko-KR"},
+            {"voice_id": "ko-KR-InJoonNeural", "display_name": "InJoon", "gender": "Male", "language": "ko", "locale": "ko-KR"},
+            {"voice_id": "zh-CN-XiaoxiaoNeural", "display_name": "Xiaoxiao", "gender": "Female", "language": "zh", "locale": "zh-CN"},
+            {"voice_id": "zh-CN-YunxiNeural", "display_name": "Yunxi", "gender": "Male", "language": "zh", "locale": "zh-CN"},
+            {"voice_id": "fr-FR-DeniseNeural", "display_name": "Denise", "gender": "Female", "language": "fr", "locale": "fr-FR"},
+            {"voice_id": "fr-FR-HenriNeural", "display_name": "Henri", "gender": "Male", "language": "fr", "locale": "fr-FR"},
+            {"voice_id": "de-DE-KatjaNeural", "display_name": "Katja", "gender": "Female", "language": "de", "locale": "de-DE"},
+            {"voice_id": "de-DE-ConradNeural", "display_name": "Conrad", "gender": "Male", "language": "de", "locale": "de-DE"},
+            {"voice_id": "es-ES-ElviraNeural", "display_name": "Elvira", "gender": "Female", "language": "es", "locale": "es-ES"},
+            {"voice_id": "es-ES-AlvaroNeural", "display_name": "Alvaro", "gender": "Male", "language": "es", "locale": "es-ES"},
         ]
-
-        prev_voice_id = self.voice_combo.currentData()
+        
         self.voice_combo.blockSignals(True)
         self.voice_combo.clear()
-        selected_index = -1
-        for idx, v in enumerate(self._all_voices):
-            vid = v.get("voice_id", "")
-            vname = v.get("display_name") or v.get("name") or vid
-            self.voice_combo.addItem(vname, vid)
-            if prev_voice_id and vid == prev_voice_id:
-                selected_index = idx
-        if selected_index != -1:
-            self.voice_combo.setCurrentIndex(selected_index)
-        elif self.voice_combo.count() > 0:
-            self.voice_combo.setCurrentIndex(0)
+        for v in self._all_voices:
+            display = v.get("display_name", v["voice_id"])
+            locale = v.get("locale", "")
+            label = f"{display} ({locale})" if locale else display
+            self.voice_combo.addItem(label, v["voice_id"])
         self.voice_combo.blockSignals(False)
-
-    def play_preview(self):
-        self.preview_btn.setEnabled(False)
-        self.preview_btn.setText("Generating...")
-        self.preview_requested.emit(
-            self.preview_text.text(),
-            self.model_combo.currentText(),
-            self.voice_combo.currentText(),
-            "",
-            float(self.speed_edit.text() or "1.0"),
-            0.0
-        )
-
-    def _on_preview_finished(self, audio_bytes):
-        self.preview_btn.setEnabled(True)
-        self.preview_btn.setText("Generate Test Audio")
-        import tempfile, os
-        from PySide6.QtCore import QUrl
-        fd, path = tempfile.mkstemp(suffix=".wav")
-        os.write(fd, audio_bytes)
-        os.close(fd)
-        self.player.setSource(QUrl.fromLocalFile(path))
-        self.player.play()
-
-    def _on_preview_error(self, err):
-        self.preview_btn.setEnabled(True)
-        self.preview_btn.setText("Generate Test Audio")
-        QMessageBox.warning(self, "Preview Failed", err)
+        
+        print(f"\n[EDGE TTS] Populated {len(self._all_voices)} default voices.\n")
+        
+    def set_voices(self, voices: list[dict]):
+        """Replace the voice list with data from the backend provider."""
+        if voices:
+            self._all_voices = voices
+            prev_voice_id = self.voice_combo.currentData()
+            self.voice_combo.blockSignals(True)
+            self.voice_combo.clear()
+            selected_index = -1
+            for idx, v in enumerate(voices):
+                vid = v.get("voice_id", "")
+                display = v.get("display_name") or v.get("name") or vid
+                locale = v.get("locale", v.get("language", ""))
+                label = f"{display} ({locale})" if locale else display
+                self.voice_combo.addItem(label, vid)
+                if prev_voice_id and vid == prev_voice_id:
+                    selected_index = idx
+            if selected_index != -1:
+                self.voice_combo.setCurrentIndex(selected_index)
+            elif self.voice_combo.count() > 0:
+                self.voice_combo.setCurrentIndex(0)
+            self.voice_combo.blockSignals(False)
+            print(f"\n[EDGE TTS] Updated to {len(voices)} voices from backend.\n")
+        
+    def _on_voice_changed(self):
+        self.voice_changed.emit()
+        
+    def _on_test_audio(self):
+        """Emit signal to trigger test audio generation."""
+        self.test_audio_btn.setEnabled(False)
+        self.test_audio_btn.setText("⏳ Generating...")
+        self.status_label.setText("")
+        self.test_audio_requested.emit()
+        
+    def _on_test_audio_finished(self, audio_data: bytes):
+        """Play back the generated test audio."""
+        self.test_audio_btn.setEnabled(True)
+        self.test_audio_btn.setText("▶ Test Audio")
+        
+        if not audio_data:
+            self.status_label.setText("<font color='red'>Test audio generation failed.</font>")
+            return
+            
+        # Play the audio data
+        import tempfile
+        import os
+        temp_path = os.path.join(tempfile.gettempdir(), "edge_tts_test.wav")
+        try:
+            with open(temp_path, "wb") as f:
+                f.write(audio_data)
+                
+            if hasattr(self, 'player') and self.player:
+                self.player.stop()
+                
+            from PySide6.QtCore import QUrl
+            self.player = QMediaPlayer()
+            self.audio_output = QAudioOutput()
+            self.player.setAudioOutput(self.audio_output)
+            self.player.setSource(QUrl.fromLocalFile(temp_path))
+            self.player.play()
+            self.status_label.setText("<font color='green'>Playing test audio...</font>")
+        except Exception as e:
+            self.status_label.setText(f"<font color='red'>Error: {e}</font>")
+            
+    def _on_test_audio_error(self, error_msg: str):
+        self.test_audio_btn.setEnabled(True)
+        self.test_audio_btn.setText("▶ Test Audio")
+        self.status_label.setText(f"<font color='red'>Error: {error_msg}</font>")
+        
+    def get_selected_voice_id(self) -> str:
+        return self.voice_combo.currentData() or ""
+        
+    def get_rate(self) -> int:
+        return self.rate_slider.value()
+        
+    def get_pitch(self) -> int:
+        return self.pitch_slider.value()
+        
+    def get_volume(self) -> int:
+        return self.volume_slider.value()
 
     def load_config(self, conf):
+        """Load Edge TTS settings from config."""
         providers = conf.get("providers", {})
-        kira_config = providers.get("kira", conf.get("kira", {}))
-        self.api_key_edit.setText(kira_config.get("api_key", ""))
-        self.base_url_edit.setText(kira_config.get("base_url", "https://kiraai.vn/api/v1"))
-        self.speed_edit.setText(str(kira_config.get("speed", "1.0")))
-        model = kira_config.get("model", "kira-3.0-flash-tts")
-        idx = self.model_combo.findText(model)
-        if idx != -1:
-            self.model_combo.setCurrentIndex(idx)
-        else:
-            self.model_combo.setCurrentText(model)
+        edge_config = providers.get("edge", conf.get("edge", {}))
+        
+        voice = edge_config.get("voice", "")
+        if voice:
+            idx = self.voice_combo.findData(voice)
+            if idx != -1:
+                self.voice_combo.setCurrentIndex(idx)
+                
+        rate = edge_config.get("rate", 0)
+        self.rate_slider.setValue(rate)
+        
+        pitch = edge_config.get("pitch", 0)
+        self.pitch_slider.setValue(pitch)
+        
+        volume = edge_config.get("volume", 100)
+        self.volume_slider.setValue(volume)
 
-    def save_config(self):
+    def save_config(self) -> dict:
         return {
-            "api_key": self.api_key_edit.text().strip(),
-            "base_url": self.base_url_edit.text().strip(),
-            "model": self.model_combo.currentText().strip(),
-            "speed": float(self.speed_edit.text().strip() or "1.0")
+            "voice": self.voice_combo.currentData() or "",
+            "rate": self.rate_slider.value(),
+            "pitch": self.pitch_slider.value(),
+            "volume": self.volume_slider.value()
         }
+
+    def closeEvent(self, event):
+        if hasattr(self, 'player') and self.player:
+            self.player.stop()
+        super().closeEvent(event)

@@ -15,7 +15,7 @@ class TranslationProviderManager:
         
     def pre_register_providers(self):
         print("\n=== TRANSLATION PROVIDER STARTUP REPORT ===")
-        for pid in ["chatanywhere", "deepl", "google", "gemini", "openai"]:
+        for pid in ["chatanywhere", "deepl"]:
             registered = "NO"
             concrete_class = "None"
             creatable = "NO"
@@ -57,7 +57,7 @@ class TranslationProviderManager:
                 if os.path.exists(settings_path):
                     with open(settings_path, "r", encoding="utf-8") as f:
                         settings = json.load(f)
-                if provider_id in ("chatanywhere", "openai") and llm_service is None:
+                if provider_id == "chatanywhere" and llm_service is None:
                     from backend.services.llm_service import LLMService
                     llm_service = LLMService()
                 self.create_provider(provider_id, settings, llm_service)
@@ -88,7 +88,7 @@ class TranslationProviderManager:
         """Factory: creates, registers, and returns a translation provider instance.
         
         Args:
-            provider_id: Provider identifier (chatanywhere, deepl, gemini, google, openai).
+            provider_id: Provider identifier (chatanywhere, deepl).
             settings: Application settings dict (typically loaded from settings.json).
             llm_service: Optional LLMService instance needed by ChatAnywhere translation provider.
             
@@ -128,35 +128,6 @@ class TranslationProviderManager:
                 base_url=config.get("base_url"),
                 model=config.get("model", "gpt-4o-mini")
             )
-        elif provider_id == "gemini":
-            from backend.providers.translation.gemini.gemini_provider import GeminiTranslationProvider
-            provider = GeminiTranslationProvider(
-                api_key=config.get("api_key", ""),
-                model=config.get("model", "gemini-1.5-flash")
-            )
-        elif provider_id == "google":
-            from backend.providers.translation.google.google_provider import GoogleTranslationProvider
-            provider = GoogleTranslationProvider(
-                api_key=config.get("api_key", "")
-            )
-        elif provider_id == "openai":
-            from backend.providers.translation.chatanywhere.chatanywhere_provider import ChatAnywhereTranslationProvider
-            
-            # Print audit checks
-            api_key = config.get("api_key", "")
-            print(f"[CONFIG FLOW AUDIT - MANAGER]")
-            print(f"  api_key exists:               {bool(api_key)}")
-            print(f"  api_key length:               {len(api_key)}")
-            print(f"  config keys:                  {list(config.keys())}")
-            
-            if llm_service is not None and hasattr(llm_service, "create_provider"):
-                llm_service.create_provider("openai", {"openai": config})
-                
-            provider = ChatAnywhereTranslationProvider(
-                api_key=api_key,
-                base_url=config.get("base_url"),
-                model=config.get("model", "gpt-4o-mini")
-            )
         else:
             raise ValueError(f"Unknown translation provider: {provider_id}")
 
@@ -166,4 +137,3 @@ class TranslationProviderManager:
 
         self.register(provider_id, provider)
         return provider
-

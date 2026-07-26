@@ -150,44 +150,5 @@ class ProviderRegistry:
         )
         self.register(elevenlabs)
 
-        kira = ProviderMetadata(
-            provider_id="Kira",
-            display_name="Kira AI",
-            provider_type="tts",
-            capabilities=ProviderCapabilities(
-                supports_audio_generation=True,
-                tts=TTSCapabilities(
-                    voice_library=True,
-                    voice_preview=True,
-                    speed_control=True,
-                    pitch_control=False,
-                    volume_control=False,
-                    emotion=False,
-                    voice_clone=False
-                )
-            )
-        )
-        self.register(kira)
-
-        omnivoice = ProviderMetadata(
-            provider_id="OmniVoice",
-            display_name="OmniVoice AI",
-            provider_type="tts",
-            capabilities=ProviderCapabilities(
-                supports_audio_generation=True,
-                tts=TTSCapabilities(
-                    voice_library=True,
-                    voice_preview=True,
-                    speed_control=True,
-                    pitch_control=True,
-                    volume_control=True,
-                    emotion=True,
-                    voice_clone=True
-                )
-            )
-        )
-        self.register(omnivoice)
-
-
 
 

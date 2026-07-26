@@ -75,16 +75,8 @@ async def test_settings_repository(db_session: AsyncSession):
     assert check_val == "my_value"
 
 def test_ai_provider_factory():
-    # Test OpenAI factory resolution
-    p_openai = AIProviderFactory.get_provider("openai", api_key="sk-test", base_url="https://api.openai.com/v1")
-    assert p_openai.provider_name == "openai"
-    assert p_openai.base_url == "https://api.openai.com/v1"
-    
     # Test ChatAnywhere factory resolution
     p_ca = AIProviderFactory.get_provider("chatanywhere", api_key="sk-ca")
     assert p_ca.provider_name == "chatanywhere"
     assert p_ca.base_url == "https://api.chatanywhere.tech/v1"
     
-    # Test Gemini factory resolution
-    p_gemini = AIProviderFactory.get_provider("gemini", api_key="gemini_key")
-    assert p_gemini.base_url == "https://generativelanguage.googleapis.com"

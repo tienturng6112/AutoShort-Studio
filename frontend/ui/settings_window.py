@@ -67,7 +67,8 @@ class ServicePreviewWorker(QThread):
     def run(self):
         try:
             import asyncio
-            audio = asyncio.run(self._svc.preview(self._pid, self._req.get("text", ""), self._req.get("voice_name", "")))
+            extra_kwargs = {k: v for k, v in self._req.items() if k not in ("text", "voice_name")}
+            audio = asyncio.run(self._svc.preview(self._pid, self._req.get("text", ""), self._req.get("voice_name", ""), **extra_kwargs))
             voice_used = self._req.get("voice_name", "")
             self.finished.emit(audio, voice_used)
         except Exception as e:
@@ -80,7 +81,7 @@ class SettingsWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._state = type('State', (), {})()
-        self._state.translation_provider = "google"
+        self._state.translation_provider = "chatanywhere"
         self._state.speech_provider = "edge"
         
         self._speech_svc = SpeechFacadeService()
@@ -91,6 +92,7 @@ class SettingsWindow(QWidget):
         self.init_ui()
         self.init_translation_widgets()
         self.init_speech_widgets()
+        self.load_settings()
         
     def init_ui(self):
         main_layout = QVBoxLayout(self)
@@ -121,7 +123,7 @@ class SettingsWindow(QWidget):
         
         self.tts_provider_combo = QComboBox()
         self.tts_provider_combo.addItems([
-            "Edge TTS", "ElevenLabs", "Gemini Speech", "Kira", "OmniVoice (Experimental)"
+            "Edge TTS", "ElevenLabs"
         ])
         self.tts_provider_combo.currentTextChanged.connect(self._on_combo_speech_provider_changed)
         speech_layout.addWidget(QLabel(loc.translate("lbl_tts_provider")))
@@ -250,9 +252,6 @@ class SettingsWindow(QWidget):
         from frontend.ui.settings.translation_widgets import (
             ChatAnywhereSettingsWidget,
             DeepLSettingsWidget,
-            GeminiSettingsWidget,
-            GoogleSettingsWidget,
-            OpenAISettingsWidget,
         )
         self.trans_widgets = {}
         
@@ -266,62 +265,37 @@ class SettingsWindow(QWidget):
         self.trans_widgets["deepl"] = deepl_widget
         self.trans_stack.addWidget(deepl_widget)
         
-        gemini_widget = GeminiSettingsWidget()
-        gemini_widget.test_requested.connect(lambda: self._test_translation_provider("gemini", gemini_widget))
-        self.trans_widgets["gemini"] = gemini_widget
-        self.trans_stack.addWidget(gemini_widget)
-        
-        google_widget = GoogleSettingsWidget()
-        google_widget.test_requested.connect(lambda: self._test_translation_provider("google", google_widget))
-        self.trans_widgets["google"] = google_widget
-        self.trans_stack.addWidget(google_widget)
-        
-        openai_widget = OpenAISettingsWidget()
-        openai_widget.test_requested.connect(lambda: self._test_translation_provider("openai", openai_widget))
-        self.trans_widgets["openai"] = openai_widget
-        self.trans_stack.addWidget(openai_widget)
         
         self.provider_combo.clear()
-        self.provider_combo.addItems(["ChatAnywhere", "DeepL", "Gemini", "Google", "OpenAI"])
+        self.provider_combo.addItems(["ChatAnywhere", "DeepL"])
         self.provider_combo.currentTextChanged.connect(self._on_combo_provider_changed)
         
     def init_speech_widgets(self):
         from frontend.ui.settings.speech_widgets import (
-            GeminiSpeechSettingsWidget,
             ElevenLabsSettingsWidget,
-            KiraSettingsWidget
+            EdgeTTSSettingsWidget,
         )
         
         self.speech_widgets = {}
         
-        self.gemini_speech_widget = GeminiSpeechSettingsWidget()
-        self.speech_widgets["gemini"] = self.gemini_speech_widget
-        self.speech_stacked_widget.addWidget(self.gemini_speech_widget)
-        
+        # ElevenLabs
         self.elevenlabs_widget = ElevenLabsSettingsWidget(loc)
         self.speech_widgets["elevenlabs"] = self.elevenlabs_widget
         self.speech_stacked_widget.addWidget(self.elevenlabs_widget)
-        
-        self.kira_widget = KiraSettingsWidget()
-        self.speech_widgets["kira"] = self.kira_widget
-        self.speech_stacked_widget.addWidget(self.kira_widget)
-        
-        # connect signals
-        self.kira_widget.test_requested.connect(lambda: self._test_speech_provider("kira", self.kira_widget))
-        self.kira_widget.refresh_voices_requested.connect(lambda: self._refresh_speech_voices("kira", self.kira_widget))
-        self.kira_widget.preview_requested.connect(lambda t, m, v, l, s, p: self._preview_speech("kira", self.kira_widget, t, m, v, l, s, p))
-        
-        self.gemini_speech_widget.test_requested.connect(lambda: self._test_speech_provider("gemini", self.gemini_speech_widget))
-        self.gemini_speech_widget.refresh_models_requested.connect(lambda: self._refresh_speech_models("gemini", self.gemini_speech_widget))
-        self.gemini_speech_widget.refresh_voices_requested.connect(lambda: self._refresh_speech_voices("gemini", self.gemini_speech_widget))
-        self.gemini_speech_widget.preview_requested.connect(lambda t, m, v, l, s, p: self._preview_speech("gemini", self.gemini_speech_widget, t, m, v, l, s, p))
         
         self.elevenlabs_widget.test_requested.connect(lambda: self._test_speech_provider("elevenlabs", self.elevenlabs_widget))
         self.elevenlabs_widget.refresh_voices_requested.connect(lambda: self._refresh_speech_voices("elevenlabs", self.elevenlabs_widget))
         self.elevenlabs_widget.preview_requested.connect(lambda t, m, v, l, s, p: self._preview_speech("elevenlabs", self.elevenlabs_widget, t, m, v, l, s, p))
         
+        # Edge TTS - dedicated widget, no shared UI
+        self.edge_widget = EdgeTTSSettingsWidget(loc)
+        self.speech_widgets["edge"] = self.edge_widget
+        self.speech_stacked_widget.addWidget(self.edge_widget)
+        
+        self.edge_widget.test_audio_requested.connect(lambda: self._test_edge_audio())
+        
         # set default widget
-        self.speech_stacked_widget.setCurrentWidget(self.gemini_speech_widget)
+        self.speech_stacked_widget.setCurrentWidget(self.elevenlabs_widget)
         
     def _on_combo_provider_changed(self, provider_name: str):
         self._state.translation_provider = provider_name.lower()
@@ -345,10 +319,7 @@ class SettingsWindow(QWidget):
         
     def _on_combo_speech_provider_changed(self, text: str):
         mapping = {
-            "Gemini Speech": "gemini",
             "ElevenLabs": "elevenlabs",
-            "Kira": "kira",
-            "OmniVoice (Experimental)": "omnivoice",
             "Edge TTS": "edge"
         }
         provider_id = mapping.get(text, "edge")
@@ -367,10 +338,7 @@ class SettingsWindow(QWidget):
             self.speech_stacked_widget.setCurrentWidget(self.speech_widgets[provider_id])
             
         mapping = {
-            "gemini": "Gemini Speech",
             "elevenlabs": "ElevenLabs",
-            "kira": "Kira",
-            "omnivoice": "OmniVoice (Experimental)",
             "edge": "Edge TTS"
         }
         target_text = mapping.get(provider_id, "Edge TTS")
@@ -383,9 +351,6 @@ class SettingsWindow(QWidget):
         
         self.update_tts_ui_state()
         
-        if provider_id == "kira":
-            self._refresh_speech_voices("kira", self.kira_widget)
-            
     def update_tts_ui_state(self):
         pass
         
@@ -448,6 +413,13 @@ class SettingsWindow(QWidget):
         
         # load speech widget configs
         providers = data.get("providers", {})
+        for pid, widget in self.trans_widgets.items():
+            if pid in providers:
+                try:
+                    widget.load_config(providers)
+                except Exception as e:
+                    print(f"[LOAD SETTINGS] Error loading config for {pid}: {e}")
+
         for pid, widget in self.speech_widgets.items():
             if pid in providers:
                 try:
@@ -508,6 +480,12 @@ class SettingsWindow(QWidget):
         
         # save widget configs
         providers = data.get("providers", {})
+        for pid, widget in self.trans_widgets.items():
+            try:
+                providers[pid] = widget.save_config()
+            except Exception as e:
+                print(f"[SAVE SETTINGS] Error saving config for {pid}: {e}")
+
         for pid, widget in self.speech_widgets.items():
             try:
                 providers[pid] = widget.save_config()
@@ -542,19 +520,22 @@ class SettingsWindow(QWidget):
         
         from frontend.ui.settings_window import ServiceConnectionWorker
         self._tw_worker = ServiceConnectionWorker(self._trans_svc, pid_lower)
-        self._tw_worker.finished.connect(lambda res: widget._on_test_finished(res))
+        self._tw_worker.finished.connect(lambda res: self._on_translation_test_finished(widget, res))
         self._tw_worker.start()
+
+    def _on_translation_test_finished(self, widget, result: dict):
+        widget._on_test_finished(result)
+        models = result.get("models", [])
+        if models:
+            widget._on_refresh_models_finished({"success": True, "models": models})
         
     def _test_speech_provider(self, provider_id: str, widget):
         pid_lower = provider_id.lower()
         config = {}
         if pid_lower == "elevenlabs":
             config = {"elevenlabs": {"api_key": widget.api_key_edit.text(), "model": widget.model_combo.currentText()}}
-        elif pid_lower == "gemini":
-            config = {"gemini": widget.save_config()}
-        elif pid_lower == "kira":
-            config = {"kira": widget.save_config()}
-            
+        else:
+            config = {}
         self._speech_svc.create_provider(pid_lower, config)
         
         resolved_pid = pid_lower
@@ -573,8 +554,6 @@ class SettingsWindow(QWidget):
     def _refresh_speech_models(self, provider_id: str, widget):
         pid_lower = provider_id.lower()
         config = {}
-        if pid_lower == "gemini":
-            config = {"gemini": widget.save_config()}
         self._speech_svc.create_provider(pid_lower, config)
         from frontend.ui.settings_window import ServiceRefreshWorker
         self._sm_worker = ServiceRefreshWorker(self._speech_svc, pid_lower, "models")
@@ -586,11 +565,8 @@ class SettingsWindow(QWidget):
         config = {}
         if pid_lower == "elevenlabs":
             config = {"elevenlabs": {"api_key": widget.api_key_edit.text(), "model": widget.model_combo.currentText()}}
-        elif pid_lower == "gemini":
-            config = {"gemini": widget.save_config()}
-        elif pid_lower == "kira":
-            config = {"kira": widget.save_config()}
-            
+        else:
+            config = {}
         self._speech_svc.create_provider(pid_lower, config)
         from frontend.ui.settings_window import ServiceRefreshWorker
         self._sv_worker = ServiceRefreshWorker(self._speech_svc, pid_lower, "voices")
@@ -635,11 +611,8 @@ class SettingsWindow(QWidget):
         config = {}
         if pid_lower == "elevenlabs":
             config = {"elevenlabs": {"api_key": widget.api_key_edit.text(), "model": widget.model_combo.currentText()}}
-        elif pid_lower == "gemini":
-            config = {"gemini": widget.save_config()}
-        elif pid_lower == "kira":
-            config = {"kira": widget.save_config()}
-            
+        else:
+            config = {}
         self._speech_svc.create_provider(pid_lower, config)
         
         req = {
@@ -658,3 +631,39 @@ class SettingsWindow(QWidget):
         self._sp_worker.finished.connect(lambda audio, v: widget._on_preview_finished(audio))
         self._sp_worker.error.connect(lambda err: widget._on_preview_error(err))
         self._sp_worker.start()
+        
+    def _test_edge_audio(self):
+        """Generate and play a test audio using the Edge TTS provider."""
+        widget = self.edge_widget
+        voice_id = widget.get_selected_voice_id()
+        if not voice_id:
+            widget._on_test_audio_error("No voice selected.")
+            return
+            
+        # Create the provider with no config needed (Edge TTS is free/no-key)
+        pid_lower = "edge"
+        self._speech_svc.create_provider(pid_lower, {})
+        
+        rate = widget.get_rate()
+        pitch = widget.get_pitch()
+        volume = widget.get_volume()
+        
+        # Map rate/pitch to edge-tts parameters (rate=+/-50%, pitch=+/-50Hz)
+        rate_str = f"{rate:+d}%"
+        pitch_str = f"{pitch:+d}Hz"
+        
+        req = {
+            "text": "This is a test audio from Edge TTS.",
+            "voice_name": voice_id,
+            "rate": rate_str,
+            "pitch": pitch_str,
+            "volume": volume
+        }
+        
+        print(f"\n[EDGE TTS TEST] voice={voice_id} rate={rate_str} pitch={pitch_str} volume={volume}%\n")
+        
+        from frontend.ui.settings_window import ServicePreviewWorker
+        self._edge_audio_worker = ServicePreviewWorker(self._speech_svc, pid_lower, req)
+        self._edge_audio_worker.finished.connect(lambda audio, v: widget._on_test_audio_finished(audio))
+        self._edge_audio_worker.error.connect(lambda err: widget._on_test_audio_error(err))
+        self._edge_audio_worker.start()
