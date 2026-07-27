@@ -17,7 +17,7 @@ def migrate_settings(settings_path: str):
             modified = True
             
         # Providers to migrate
-        provider_keys = ["chatanywhere", "deepl", "elevenlabs"]
+        provider_keys = ["llm", "deepl", "elevenlabs"]
         
         for key in provider_keys:
             if key in data:
@@ -39,7 +39,17 @@ def migrate_settings(settings_path: str):
             
         # Ensure llm_provider exists
         if "llm_provider" not in data:
-            data["llm_provider"] = "chatanywhere"
+            data["llm_provider"] = "llm"
+            modified = True
+
+        # Normalize existing llm_provider values
+        if data.get("llm_provider") in ("chatanywhere", "openai_compatible"):
+            data["llm_provider"] = "llm"
+            modified = True
+
+        # Normalize existing llm_provider values
+        if data.get("llm_provider") in ("chatanywhere", "openai_compatible"):
+            data["llm_provider"] = "llm"
             modified = True
             
         # Normalize translation_provider

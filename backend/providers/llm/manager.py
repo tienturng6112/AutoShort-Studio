@@ -52,7 +52,7 @@ class LLMProviderManager:
         """Factory: creates, registers, and returns an LLM provider instance.
         
         Args:
-            provider_id: Provider identifier (chatanywhere).
+            provider_id: Provider identifier (e.g., "llm", "openai_compatible").
             settings: Application settings dict (typically loaded from settings.json).
             
         Returns:
@@ -60,13 +60,15 @@ class LLMProviderManager:
         """
         provider_id = provider_id.lower()
 
-        if provider_id == "chatanywhere":
-            from backend.providers.llm.chatanywhere.chatanywhere_provider import ChatAnywhereProvider
-            config = settings.get("chatanywhere", settings.get("providers", {}).get("chatanywhere", {}))
-            provider = ChatAnywhereProvider(
-                name="chatanywhere",
+        # Support "llm" as the primary LLM provider key.
+        # Reads config from settings under "llm" key with fallback to "providers.llm".
+        if provider_id == "llm":
+            from backend.providers.llm.chatanywhere.chatanywhere_provider import LLMAPIProvider
+            config = settings.get("llm", settings.get("providers", {}).get("llm", {}))
+            provider = LLMAPIProvider(
+                name=provider_id,
                 api_key=config.get("api_key", ""),
-                base_url=config.get("base_url")
+                base_url=config.get("base_url", config.get("api_base", ""))
             )
         else:
             raise ValueError(f"Unknown LLM provider: {provider_id}")
@@ -77,4 +79,3 @@ class LLMProviderManager:
 
         self.register(provider_id, provider)
         return provider
-

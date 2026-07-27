@@ -142,7 +142,7 @@ class LLMAPIProvider(BaseLLMProvider):
                 if chunk.choices and chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
         except Exception as e:
-            raise AIProviderException(f"ChatAnywhere stream execution failed: {str(e)}")
+            raise AIProviderException(f"LLM API stream execution failed: {str(e)}")
 
     async def embeddings(self, text: str) -> List[float]:
         try:
@@ -153,4 +153,4 @@ class LLMAPIProvider(BaseLLMProvider):
             )
             return response.data[0].embedding
         except Exception as e:
-            raise AIProviderException(f"ChatAnywhere embeddings execution failed: {str(e)}")
+            raise AIProviderException(f"LLM API embeddings execution failed: {str(e)}")

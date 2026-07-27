@@ -1,0 +1,7 @@
+1
+00:00:00,500 --> 00:00:38,579
+Đây là một bài kiểm tra xác thực bài phát biểu cho pipeline Alpha 0.1A.
+
+2
+00:00:39,069 --> 00:00:39,079
+

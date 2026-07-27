@@ -6,7 +6,7 @@ from backend.services.llm_service import ILLMService
 class ScriptGenerationService:
     """Service coordinates script drafting by loading dynamic templates, forming conversations, and querying LLMs."""
     
-    def __init__(self, llm_service: ILLMService, prompt_template_path: str, llm_provider_id: str = "chatanywhere") -> None:
+    def __init__(self, llm_service: ILLMService, prompt_template_path: str, llm_provider_id: str = "llm") -> None:
         self._llm_service = llm_service
         self._template_path = prompt_template_path
         self._llm_provider_id = llm_provider_id

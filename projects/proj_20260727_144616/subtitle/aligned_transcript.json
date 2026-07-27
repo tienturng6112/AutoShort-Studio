@@ -1,0 +1,41 @@
+{
+  "text": "Đây là một buổi kiểm tra xác thực giọng nói cho pipeline Alpha 0.1A.",
+  "language": "vi",
+  "language_probability": 1.0,
+  "duration": 39.079002,
+  "segments": [
+    {
+      "id": 0,
+      "start": 0.5,
+      "end": 38.579002,
+      "text": "Đây là một buổi kiểm tra xác thực giọng nói cho pipeline Alpha 0.1A.",
+      "words": [],
+      "confidence": 1.0,
+      "speaker_id": "Speaker_B",
+      "speaker_gender": null,
+      "voice": null,
+      "emotion": {
+        "emotion_id": "Neutral",
+        "intensity": 1.0,
+        "confidence": 100.0,
+        "user_override": false,
+        "provider_supported": false,
+        "created_at": 1785138379.843447
+      },
+      "metadata": {}
+    },
+    {
+      "id": 1,
+      "start": 39.069002000000005,
+      "end": 39.079002,
+      "text": "",
+      "words": [],
+      "confidence": 1.0,
+      "speaker_id": "Speaker_A",
+      "speaker_gender": null,
+      "voice": null,
+      "emotion": null,
+      "metadata": {}
+    }
+  ]
+}

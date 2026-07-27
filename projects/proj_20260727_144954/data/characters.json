@@ -1,0 +1,27 @@
+{
+    "version": 1,
+    "last_updated": 1785138596.8132458,
+    "characters": [
+        {
+            "character_id": "char_c93c7b5a",
+            "display_name": "Speaker B",
+            "aliases": [
+                "Speaker_B"
+            ],
+            "gender": "Unknown",
+            "estimated_age": null,
+            "language": null,
+            "accent": null,
+            "preferred_voice": null,
+            "preferred_provider": null,
+            "emotion_profile": "Neutral",
+            "speech_rate": 1.0,
+            "pitch": 1.0,
+            "volume": 1.0,
+            "notes": null,
+            "favorite": false,
+            "created_at": 1785138596.8131135,
+            "updated_at": 1785138596.813114
+        }
+    ]
+}

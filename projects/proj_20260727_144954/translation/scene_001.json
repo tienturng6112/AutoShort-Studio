@@ -1,0 +1,22 @@
+[
+  {
+    "id": 0,
+    "start": 0.5,
+    "end": 38.579002,
+    "text": "这是一个关于Alpha 0.1A端到端管道测试的视频。",
+    "words": [],
+    "confidence": 1.0,
+    "speaker_id": "Speaker_B",
+    "speaker_gender": null,
+    "voice": null,
+    "emotion": {
+      "emotion_id": "Neutral",
+      "intensity": 1.0,
+      "confidence": 100.0,
+      "user_override": false,
+      "provider_supported": false,
+      "created_at": 1785138596.8144934
+    },
+    "metadata": {}
+  }
+]

@@ -459,13 +459,12 @@ async def main() -> None:
             speech_manager = SpeechProviderManager()
 
             # 2. Init LLM Provider
-            llm_type = settings.get("llm_provider", "chatanywhere").lower()
-            if llm_type == "chatanywhere":
-                from backend.providers.llm.chatanywhere.chatanywhere_provider import ChatAnywhereProvider
-                config = settings.get("providers", {}).get("chatanywhere", {})
-                llm_prov = ChatAnywhereProvider(
-                    "chatanywhere", config.get("api_key"), config.get("base_url"))
-                llm_manager.register("chatanywhere", llm_prov)
+            llm_type = settings.get("llm_provider", "llm").lower()
+            if llm_type == "llm":
+                llm_manager.create_provider("llm", settings)
+            elif llm_type == "chatanywhere":
+                # Legacy: migrate "chatanywhere" llm_provider to generic LLM
+                llm_manager.create_provider("llm", settings)
 
             # Wrap LLM provider in LLMService
             from backend.services.llm_service import LLMService
@@ -478,7 +477,7 @@ async def main() -> None:
                 def get_active_provider(self): return self.p
             llm_service = LLMService(
                 LegacyLLMManagerAdapter(
-                    llm_manager.get(llm_type)))
+                    llm_manager.get("llm")))
 
             # 3. Init Translation Provider
             trans_type = settings.get("translation_provider", "deepl").lower()
@@ -556,6 +555,11 @@ async def main() -> None:
             quality_setting = settings.get("translation_quality", "Balanced")
 
             translated_transcript = None
+
+            # Snapshot original segment texts before IntelligentTranslationEngine
+            # mutates transcript.segments[i].text in-place
+            original_texts = [seg.text for seg in transcript.segments]
+
             try:
                 # Duck typing for the new engine vs old service
                 if hasattr(translation_service, "average_quality_score"):
@@ -638,9 +642,13 @@ async def main() -> None:
             review_mgr = ReviewManager(project_id=project_id)
             memory = TranslationMemory(project_id=project_id)
 
-            for orig_seg, trans_seg in zip(
-                    transcript.segments, translated_transcript.segments):
+            for idx, (orig_seg, trans_seg) in enumerate(zip(
+                    transcript.segments, translated_transcript.segments)):
                 existing = review_mgr.get_segment(str(orig_seg.id))
+
+                # Use pre-translation snapshot for original text (transcript.segments
+                # were mutated in-place by IntelligentTranslationEngine)
+                orig_text = original_texts[idx] if idx < len(original_texts) else orig_seg.text
 
                 if existing and existing.is_frozen:
                     # Freeze rule: never overwrite
@@ -649,7 +657,7 @@ async def main() -> None:
 
                 # Priority: Glossary > User TM > Auto TM > LLM
                 # (Assuming Glossary was handled by LLM/Optimizer for now, but we check TM here)
-                tm_trans = memory.segments.get(orig_seg.text)
+                tm_trans = memory.segments.get(orig_text)
                 final_trans = trans_seg.text
                 status = "AI Generated"
 
@@ -677,7 +685,7 @@ async def main() -> None:
                         start_time=orig_seg.start,
                         end_time=orig_seg.end,
                         speaker=orig_seg.speaker_id or "",
-                        original=orig_seg.text,
+                        original=orig_text,
                         translated=final_trans,
                         optimized="",
                         confidence=trans_seg.confidence,
@@ -878,7 +886,7 @@ async def main() -> None:
             state_manager.set_metadata("voice_mp3_dest", voice_mp3_dest)
             state_manager.set_metadata("narr_dur", narr_dur)
             state_manager.set_metadata("has_subtitles", has_subtitles)
-            state_manager.set_metadata("subtitle_srt_dest", subtitle_srt_dest)
+            state_manager.set_metadata("subtitle_srt_dest", subtitle_srt_src)  # canonical source: aligned_transcript.srt
             state_manager.mark_completed("stage_7")
         else:
             logger.info("Stage 7: Skipped (Already completed).")

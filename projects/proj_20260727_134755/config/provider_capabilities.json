@@ -1,0 +1,26 @@
+{
+  "DeepL": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-27T06:47:58.203204",
+    "reachable": true
+  },
+  "ChatAnywhere": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-27T06:47:58.203204",
+    "reachable": true
+  },
+  "Edge TTS": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-27T06:47:58.203204",
+    "reachable": true
+  },
+  "ElevenLabs": {
+    "models": [],
+    "voices": [],
+    "last_refreshed": "2026-07-27T06:47:58.203204",
+    "reachable": true
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "version": "1.1",
+  "segments": [
+    {
+      "segment_id": "0",
+      "start_time": 0.5,
+      "end_time": 38.579002,
+      "speaker": "Speaker_B",
+      "original": "这是一个关于Alpha 0.1A端到端管道测试的视频。",
+      "translated": "Đây là một video thử nghiệm đường ống đầu cuối Alpha 0.1A.",
+      "optimized": "",
+      "confidence": 1.0,
+      "status": "AI Generated",
+      "comment": "",
+      "is_frozen": false
+    }
+  ]
+}

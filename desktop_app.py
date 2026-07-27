@@ -727,7 +727,7 @@ if __name__ == '__main__':
 
         # 3. Validate LLM
         llm_manager = LLMProviderManager()
-        llm_providers = ["chatanywhere"]
+        llm_providers = ["llm"]
         for pid in llm_providers:
             try:
                 p = llm_manager.create_provider(pid, dummy_settings)

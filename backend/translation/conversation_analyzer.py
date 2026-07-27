@@ -10,7 +10,7 @@ logger = logging.getLogger("ConversationAnalyzerService")
 class ConversationAnalyzerService:
     """Performs semantic analysis on a group of scene segments using an LLM."""
     
-    def __init__(self, llm_service: ILLMService, model: str = "gpt-4o-mini", llm_provider_id: str = "chatanywhere") -> None:
+    def __init__(self, llm_service: ILLMService, model: str = "gpt-4o-mini", llm_provider_id: str = "llm") -> None:
         self._llm = llm_service
         self._model = model
         self._llm_provider_id = llm_provider_id

@@ -173,6 +173,10 @@ class IntelligentTranslationEngine:
             cached_text = self._cache.get(seg.text, target_lang)
             if cached_text:
                 seg.text = cached_text
+        
+        # Rebuild top-level text from translated segments and update language
+        transcript.text = " ".join(seg.text.strip() for seg in transcript.segments).strip()
+        transcript.language = target_lang
                 
         # Calculate score
         if total_segments > 0:

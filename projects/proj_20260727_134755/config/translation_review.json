@@ -1,0 +1,18 @@
+{
+  "version": "1.1",
+  "segments": [
+    {
+      "segment_id": "0",
+      "start_time": 0.5,
+      "end_time": 38.579002,
+      "speaker": "Speaker_B",
+      "original": "Đây là một bài kiểm tra xác thực bài phát biểu cho pipeline Alpha 0.1A.",
+      "translated": "Đây là một bài kiểm tra xác thực bài phát biểu cho pipeline Alpha 0.1A.",
+      "optimized": "",
+      "confidence": 1.0,
+      "status": "AI Generated",
+      "comment": "",
+      "is_frozen": false
+    }
+  ]
+}
